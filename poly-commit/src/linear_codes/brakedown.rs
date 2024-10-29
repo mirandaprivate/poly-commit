@@ -11,7 +11,6 @@ use ark_crypto_primitives::merkle_tree::{Config, LeafParam, TwoToOneParam};
 use ark_ff::PrimeField;
 use ark_std::log2;
 use ark_std::rand::RngCore;
-use ark_std::vec::Vec;
 #[cfg(all(not(feature = "std"), target_arch = "aarch64"))]
 use num_traits::Float;
 

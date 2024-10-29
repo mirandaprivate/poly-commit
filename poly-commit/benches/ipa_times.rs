@@ -23,7 +23,7 @@ fn rand_point_ipa_pc<F: PrimeField>(_: usize, rng: &mut ChaCha20Rng) -> F {
     F::rand(rng)
 }
 
-const MIN_NUM_VARS: usize = 10;
-const MAX_NUM_VARS: usize = 20;
+const MIN_NUM_VARS: usize = 20;
+const MAX_NUM_VARS: usize = 21;
 
 bench!(IPA_JubJub, rand_poly_ipa_pc, rand_point_ipa_pc);

@@ -218,6 +218,71 @@ where
     start.elapsed()
 }
 
+pub fn experiment<F, P, PCS>(
+    num_vars: usize,
+    rand_poly: fn(usize, &mut ChaCha20Rng) -> P,
+    rand_point: fn(usize, &mut ChaCha20Rng) -> P::Point,
+)
+where
+    F: PrimeField,
+    P: Polynomial<F>,
+    PCS: PolynomialCommitment<F, P>,
+{
+    let rng = &mut ChaCha20Rng::from_rng(test_rng()).unwrap();
+
+    let setup_start = Instant::now();
+    let pp = PCS::setup(num_vars, Some(num_vars), rng).unwrap();
+    let (ck, vk) = PCS::trim(&pp, num_vars, num_vars, None).unwrap();
+    let setup_time = setup_start.elapsed().as_secs_f32() * 1000.0;
+    println!("Setup time: {} ms", setup_time);
+
+    let labeled_poly =
+        LabeledPolynomial::new("test".to_string(), rand_poly(num_vars, rng), None, None);
+    
+    let start_commit = Instant::now();
+    let (coms, states) = PCS::commit(&ck, [&labeled_poly], Some(rng)).unwrap();
+    let commit_time = start_commit.elapsed().as_secs_f32();
+    println!("Commit time: {} s", commit_time);
+
+    let commit_size = coms[0].commitment().serialized_size(Compress::No);
+    println!("Commitment size: {} B", commit_size);
+
+    let point = rand_point(num_vars, rng);
+    let claimed_eval = labeled_poly.evaluate(&point);
+
+    let start_open = Instant::now();
+    let proof = PCS::open(
+        &ck,
+        [&labeled_poly],
+        &coms,
+        &point,
+        &mut test_sponge::<F>(),
+        &states,
+        Some(rng),
+    )
+    .unwrap();
+    let open_time = start_open.elapsed().as_secs_f32();
+    println!("Open time: {} s", open_time);
+
+    let start_verify = Instant::now();
+    PCS::check(
+        &vk,
+        &coms,
+        &point,
+        [claimed_eval],
+        &proof,
+        &mut test_sponge::<F>(),
+        None,
+    )
+    .unwrap();
+    let verify_time = start_verify.elapsed().as_secs_f32() * 1000.0;
+    println!("Verify time: {} ms", verify_time);
+
+    let bproof: PCS::BatchProof = vec![proof].into();
+    let proof_size = bproof.serialized_size(Compress::No);
+    println!("Proof size: {} B", proof_size);
+}
+
 /*************** Auxiliary functions ***************/
 
 fn test_sponge<F: PrimeField>() -> PoseidonSponge<F> {

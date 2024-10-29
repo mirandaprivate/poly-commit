@@ -28,29 +28,34 @@ rand = { version = "0.8.0", optional = true }
 rayon = { version = "1", optional = true }
 merlin = { version = "3.0.0", default-features = false }
 
-[[bench]]
-name = "ipa_times"
-path = "benches/ipa_times.rs"
-harness = false
+# [[bench]]
+# name = "ipa_times"
+# path = "benches/ipa_times.rs"
+# harness = false
+
+# [[bench]]
+# name = "brakedown_times"
+# path = "benches/brakedown_ml_times.rs"
+# harness = false
+
+# [[bench]]
+# name = "ligero_ml_times"
+# path = "benches/ligero_ml_times.rs"
+# harness = false
+
+# [[bench]]
+# name = "hyrax_times"
+# path = "benches/hyrax_times.rs"
+# harness = false
+
+# [[bench]]
+# name = "size"
+# path = "benches/size.rs"
+# harness = false
 
 [[bench]]
-name = "brakedown_times"
-path = "benches/brakedown_ml_times.rs"
-harness = false
-
-[[bench]]
-name = "ligero_ml_times"
-path = "benches/ligero_ml_times.rs"
-harness = false
-
-[[bench]]
-name = "hyrax_times"
-path = "benches/hyrax_times.rs"
-harness = false
-
-[[bench]]
-name = "size"
-path = "benches/size.rs"
+name = "experiment"
+path = "benches/experiment.rs"
 harness = false
 
 [target.'cfg(all(target_has_atomic = "8", target_has_atomic = "16", target_has_atomic = "32", target_has_atomic = "64", target_has_atomic = "ptr"))'.dependencies]
