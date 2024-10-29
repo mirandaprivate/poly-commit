@@ -267,13 +267,22 @@ macro_rules! bench {
     (
         $scheme_type:ty, $rand_poly:ident, $rand_point:ident
     ) => {
+        fn custom_criterion() -> Criterion {
+            Criterion::default().sample_size(10) // Set sample size to 10
+        }
+
         fn bench_pcs(c: &mut Criterion) {
             bench_method!(c, commit, $scheme_type, $rand_poly, $rand_point);
             bench_method!(c, open, $scheme_type, $rand_poly, $rand_point);
+            // bench_method!(c, proof_size, $scheme_type, $rand_poly, $rand_point);
             bench_method!(c, verify, $scheme_type, $rand_poly, $rand_point);
         }
 
-        criterion_group!(benches, bench_pcs);
+        criterion_group! {
+            name = benches;
+            config = custom_criterion();
+            targets = bench_pcs
+        }
 
         paste! {
             criterion_main!(
