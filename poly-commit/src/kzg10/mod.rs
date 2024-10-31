@@ -5,13 +5,14 @@
 //! proposed by Kate, Zaverucha, and Goldberg ([KZG10](http://cacr.uwaterloo.ca/techreports/2010/cacr2010-10.pdf)).
 //! This construction achieves extractability in the algebraic group model (AGM).
 
+use std::time::Instant;
+
 use crate::{BTreeMap, Error, LabeledPolynomial, PCCommitmentState};
 use ark_ec::{pairing::Pairing, scalar_mul::ScalarMul, AffineRepr, CurveGroup, VariableBaseMSM};
 use ark_ff::{One, PrimeField, UniformRand, Zero};
 use ark_poly::DenseUVPolynomial;
 use ark_std::{format, marker::PhantomData, ops::Div, ops::Mul, rand::RngCore};
-#[cfg(not(feature = "std"))]
-use ark_std::{string::ToString, vec::Vec};
+use ark_serialize::CanonicalSerialize;
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
 
@@ -469,6 +470,89 @@ fn convert_to_bigints<F: PrimeField>(p: &[F]) -> Vec<F::BigInt> {
     coeffs
 }
 
+
+impl<E: Pairing, P: DenseUVPolynomial<E::ScalarField>> KZG10<E, P> {
+    /// Specializes the public parameters for a given maximum degree `d` for polynomials
+    /// `d` should be less that `pp.max_degree()`.
+    pub(crate) fn trim(
+        pp: &UniversalParams<E>,
+        mut supported_degree: usize,
+    ) -> Result<(Powers<E>, VerifierKey<E>), Error> {
+        if supported_degree == 1 {
+            supported_degree += 1;
+        }
+        let powers_of_g = pp.powers_of_g[..=supported_degree].to_vec();
+        let powers_of_gamma_g = (0..=supported_degree)
+            .map(|i| pp.powers_of_gamma_g[&i])
+            .collect();
+
+        let powers = Powers {
+            powers_of_g: ark_std::borrow::Cow::Owned(powers_of_g),
+            powers_of_gamma_g: ark_std::borrow::Cow::Owned(powers_of_gamma_g),
+        };
+        let vk = VerifierKey {
+            g: pp.powers_of_g[0],
+            gamma_g: pp.powers_of_gamma_g[&0],
+            h: pp.h,
+            beta_h: pp.beta_h,
+            prepared_h: pp.prepared_h.clone(),
+            prepared_beta_h: pp.prepared_beta_h.clone(),
+        };
+        Ok((powers, vk))
+    }
+}
+
+/// Experiment for KZG10
+pub fn experiment_kzg_template<E, P>(degree: usize)
+where
+    E: Pairing,
+    P: DenseUVPolynomial<E::ScalarField, Point = E::ScalarField>,
+    for<'a, 'b> &'a P: Div<&'b P, Output = P>,
+{
+    let rng = &mut ark_std::test_rng();
+
+    let start_setup = Instant::now();
+    let pp = KZG10::<E, P>::setup(degree, false, rng).unwrap();
+    let (ck, vk) = KZG10::<E, P>::trim(&pp, degree).unwrap();
+    let setup_time = start_setup.elapsed().as_secs_f64();
+    println!("Setup time: {:?}s", setup_time);
+
+    let start_commit = Instant::now();
+    let p = P::rand(degree, rng);
+    let hiding_bound = Some(1);
+    let (comm, rand) =
+        KZG10::<E, P>::commit(&ck, &p, hiding_bound, Some(rng)).unwrap();
+    let commit_time = start_commit.elapsed().as_secs_f64();
+    println!("Commit time: {:?}s", commit_time);
+
+    let mut commit_writer = Vec::new();
+    comm.serialize_compressed(&mut commit_writer).unwrap();
+    let commit_size = commit_writer.len();
+    println!("Commit size: {:?}B", commit_size);
+
+    let start_open = Instant::now();
+    let point = E::ScalarField::rand(rng);
+    let value = p.evaluate(&point);
+    let proof = KZG10::<E, P>::open(&ck, &p, point, &rand).unwrap();
+    let open_time = start_open.elapsed().as_secs_f64();
+    println!("Open time: {:?}s", open_time);
+
+    let verify_time = Instant::now();
+    let verified = KZG10::<E, P>::check(&vk, &comm, point, value, &proof).unwrap();
+    let verify_time = verify_time.elapsed().as_secs_f64()*1000.0;
+    println!("Verify time: {:?}ms", verify_time);
+
+    let mut writer = Vec::new();
+    proof.serialize_compressed(&mut writer).unwrap();
+    let proof_size = writer.len();
+    println!("Proof size: {:?}B", proof_size);
+
+    println!(
+        "KZG10 proof verified: {}",
+        KZG10::<E, P>::check(&vk, &comm, point, value, &proof).unwrap()
+    );
+}
+
 #[cfg(test)]
 mod tests {
     #![allow(non_camel_case_types)]
@@ -485,36 +569,6 @@ mod tests {
     type UniPoly_377 = DensePoly<<Bls12_377 as Pairing>::ScalarField>;
     type KZG_Bls12_381 = KZG10<Bls12_381, UniPoly_381>;
 
-    impl<E: Pairing, P: DenseUVPolynomial<E::ScalarField>> KZG10<E, P> {
-        /// Specializes the public parameters for a given maximum degree `d` for polynomials
-        /// `d` should be less that `pp.max_degree()`.
-        pub(crate) fn trim(
-            pp: &UniversalParams<E>,
-            mut supported_degree: usize,
-        ) -> Result<(Powers<E>, VerifierKey<E>), Error> {
-            if supported_degree == 1 {
-                supported_degree += 1;
-            }
-            let powers_of_g = pp.powers_of_g[..=supported_degree].to_vec();
-            let powers_of_gamma_g = (0..=supported_degree)
-                .map(|i| pp.powers_of_gamma_g[&i])
-                .collect();
-
-            let powers = Powers {
-                powers_of_g: ark_std::borrow::Cow::Owned(powers_of_g),
-                powers_of_gamma_g: ark_std::borrow::Cow::Owned(powers_of_gamma_g),
-            };
-            let vk = VerifierKey {
-                g: pp.powers_of_g[0],
-                gamma_g: pp.powers_of_gamma_g[&0],
-                h: pp.h,
-                beta_h: pp.beta_h,
-                prepared_h: pp.prepared_h.clone(),
-                prepared_beta_h: pp.prepared_beta_h.clone(),
-            };
-            Ok((powers, vk))
-        }
-    }
 
     #[test]
     fn add_commitments_test() {

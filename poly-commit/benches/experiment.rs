@@ -1,31 +1,33 @@
+use ark_bls12_381::Bls12_381;
 use ark_crypto_primitives::{
     crh::{sha256::Sha256, CRHScheme, TwoToOneCRHScheme},
     merkle_tree::{ByteDigestConverter, Config},
 };
-use ark_ec::{bls12::Bls12, pairing::Pairing};
+use ark_ec::pairing::Pairing;
 use ark_pcs_bench_templates::*;
 use ark_poly::DenseUVPolynomial;
 use ark_poly::univariate::DensePolynomial as DenseUnivariatePoly;
 use ark_poly::{DenseMultilinearExtension, MultilinearExtension};
 
-use ark_poly_commit::ipa_pc::InnerProductArgPC;
+use ark_poly_commit::{ipa_pc::InnerProductArgPC, sonic_pc::SonicKZG10};
 use ark_poly_commit::linear_codes::{LinearCodePCS, MultilinearBrakedown,MultilinearLigero};
 use ark_poly_commit::hyrax::HyraxPC;
-use ark_poly_commit::kzg10::KZG10;
 use blake2::Blake2s256;
 
 use ark_ff::PrimeField;
 
 use rand_chacha::ChaCha20Rng;
 
-const MIN_NUM_VARS: usize = 28;
-const MAX_NUM_VARS: usize = 29;
+const MIN_NUM_VARS: usize = 24;
+const MAX_NUM_VARS: usize = 25;
 
 fn main() {
     // experiment_brakedown();
     // experiment_hyrax();
     // experiment_lingero();
-    experiment_ipa();
+    // experiment_kzg();
+    experiment_sonic();
+    // experiment_ipa();
 }
 
 fn experiment_brakedown() {
@@ -136,12 +138,42 @@ fn experiment_lingero() {
         (0..num_vars).map(|_| F::rand(rng)).collect()
     }
 
-    println!("\nHyrax on BN254:");
+    println!("\nLingero on BN254:");
     for num_vars in (MIN_NUM_VARS..MAX_NUM_VARS).step_by(2) {
         experiment::<ark_bn254::Fr, MLE<ark_bn254::Fr>, Ligero<ark_bn254::Fr>>(
             num_vars,
             rand_poly_ligero_ml,
             rand_point_ligero_ml
+        );
+    }
+}
+
+fn experiment_sonic() {
+    #![allow(non_camel_case_types)]
+    use ark_poly::univariate::DensePolynomial as DensePoly;
+
+    type UniPoly_381 = DensePoly<<Bls12_381 as Pairing>::ScalarField>;
+
+    type PC<E, P> = SonicKZG10<E, P>;
+    type PC_Bls12_381 = PC<Bls12_381, UniPoly_381>;
+
+    fn rand_poly_sonic<F: PrimeField>(
+        degree: usize,
+        rng: &mut ChaCha20Rng,
+    ) -> DensePoly<F> {
+        DenseUVPolynomial::rand(degree, rng)
+    }
+
+    fn rand_point_sonic<F: PrimeField>(_: usize, rng: &mut ChaCha20Rng) -> F {
+        F::rand(rng)
+    }
+
+    println!("\nSonic on BLS12-381:");
+    for num_vars in (MIN_NUM_VARS..MAX_NUM_VARS).step_by(2) {
+        experiment::<_,_, PC_Bls12_381>(
+            2_usize.pow(num_vars as u32),
+            rand_poly_sonic,
+            rand_point_sonic // Add the type parameter here
         );
     }
 }
@@ -164,68 +196,24 @@ fn experiment_ipa() {
     println!("\nIPA on BLS12-381:");
     for num_vars in (MIN_NUM_VARS..MAX_NUM_VARS).step_by(2) {
         experiment::<ark_ed_on_bls12_381::Fr, UniPoly, IPA_JubJub>(
-            2_usize.pow(21 as u32),
+            2_usize.pow(num_vars as u32),
             rand_poly_ipa_pc,
             rand_point_ipa_pc
         );
     }
 }
 
-// fn experiment_kzg() {
-//     #![allow(non_camel_case_types)]
-//     use crate::kzg10::*;
-//     use crate::*;
+fn experiment_kzg() {
+    #![allow(non_camel_case_types)]
+    use ark_bls12_381::Bls12_381;
+    use ark_poly::univariate::DensePolynomial as DensePoly;
 
-//     use ark_bls12_377::Bls12_377;
-//     use ark_bls12_381::Bls12_381;
-//     use ark_bls12_381::Fr;
-//     use ark_poly::univariate::DensePolynomial as DensePoly;
-//     use ark_std::test_rng;
+    type UniPoly_381 = DensePoly<<Bls12_381 as Pairing>::ScalarField>;
 
-//     type UniPoly_381 = DensePoly<<Bls12_381 as Pairing>::ScalarField>;
-//     type UniPoly_377 = DensePoly<<Bls12_377 as Pairing>::ScalarField>;
-//     type KZG_Bls12_381 = KZG10<Bls12_381, UniPoly_381>;
-// }
-
-// fn end_to_end_test_template<E, P>()
-// where
-//     E: Pairing,
-//     P: DenseUVPolynomial<E::ScalarField, Point = E::ScalarField>,
-//     for<'a, 'b> &'a P: Div<&'b P, Output = P>,
-// {
-//     #![allow(non_camel_case_types)]
-//     use ark_poly_commit::kzg10::*;
-//     use ark_poly_commit::*;
-
-//     use ark_bls12_377::Bls12_377;
-//     use ark_bls12_381::Bls12_381;
-//     use ark_bls12_381::Fr;
-//     use ark_poly::univariate::DensePolynomial as DensePoly;
-//     use ark_std::test_rng;
-
-//     type UniPoly_381 = DensePoly<<Bls12_381 as Pairing>::ScalarField>;
-//     type UniPoly_377 = DensePoly<<Bls12_377 as Pairing>::ScalarField>;
-//     type KZG_Bls12_381 = KZG10<Bls12_381, UniPoly_381>;
-
-//     let rng = &mut test_rng();
-
-//     let mut degree = 0;
-//     while degree <= 1 {
-//         degree = usize::rand(rng) % 20;
-//     }
-//     let pp = KZG10::<E, P>::setup(degree, false, rng)?;
-//     let (ck, vk) = KZG10::<E, P>::trim(&pp, degree)?;
-//     let p = P::rand(degree, rng);
-//     let hiding_bound = Some(1);
-//     let (comm, rand) = KZG10::<E, P>::commit(&ck, &p, hiding_bound, Some(rng))?;
-//     let point = E::ScalarField::rand(rng);
-//     let value = p.evaluate(&point);
-//     let proof = KZG10::<E, P>::open(&ck, &p, point, &rand)?;
-//     assert!(
-//         KZG10::<E, P>::check(&vk, &comm, point, value, &proof)?,
-//         "proof was incorrect for max_degree = {}, polynomial_degree = {}, hiding_bound = {:?}",
-//         degree,
-//         p.degree(),
-//         hiding_bound,
-//     );
-// }
+    println!("\nKZG on BLS12-381:");
+    for num_vars in (MIN_NUM_VARS..MAX_NUM_VARS).step_by(2) {
+        ark_poly_commit::kzg10::experiment_kzg_template::<Bls12_381, UniPoly_381>(
+        2_usize.pow(num_vars as u32),
+        );
+    }
+}

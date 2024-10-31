@@ -57,6 +57,9 @@ pub use error::*;
 /// [marlin]: https://eprint.iacr.org/2019/1047
 pub mod marlin;
 
+/// Hybrid polynomial commitment scheme that combines the Dory and KZG10 schemes.
+pub mod hybrid;
+
 /// A random number generator that bypasses some limitations of the Rust borrow
 /// checker.
 pub mod optional_rng;
@@ -758,7 +761,7 @@ pub mod tests {
         Ok(())
     }
 
-    fn test_template<F, P, PC, S>(info: TestInfo<F, P, S>) -> Result<(), PC::Error>
+    pub fn test_template<F, P, PC, S>(info: TestInfo<F, P, S>) -> Result<(), PC::Error>
     where
         F: PrimeField,
         P: Polynomial<F>,
