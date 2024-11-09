@@ -8,7 +8,7 @@ use ark_crypto_primitives::{
 use ark_ff::PrimeField;
 use ark_poly::Polynomial;
 use ark_serialize::{CanonicalSerialize, Compress};
-use ark_std::{test_rng, UniformRand};
+use ark_std::{rand::Rng, test_rng, UniformRand};
 use rand_chacha::{
     rand_core::{RngCore, SeedableRng},
     ChaCha20Rng,
@@ -21,6 +21,7 @@ use ark_poly_commit::{to_bytes, LabeledPolynomial, PolynomialCommitment};
 
 pub use criterion::*;
 pub use paste::paste;
+
 
 /// Measure the time cost of `method` (i.e., commit/open/verify) of a
 /// multilinear PCS for all `num_vars` specified in `nv_list`.
@@ -228,16 +229,20 @@ where
     P: Polynomial<F>,
     PCS: PolynomialCommitment<F, P>,
 {
+
     let rng = &mut ChaCha20Rng::from_rng(test_rng()).unwrap();
 
     let setup_start = Instant::now();
     let pp = PCS::setup(num_vars, Some(num_vars), rng).unwrap();
     let (ck, vk) = PCS::trim(&pp, num_vars, num_vars, None).unwrap();
+
     let setup_time = setup_start.elapsed().as_secs_f32() * 1000.0;
     println!("Setup time: {} ms", setup_time);
 
+    let p = rand_poly(num_vars, rng);
+
     let labeled_poly =
-        LabeledPolynomial::new("test".to_string(), rand_poly(num_vars, rng), None, None);
+        LabeledPolynomial::new("test".to_string(), p, None, None);
     
     let start_commit = Instant::now();
     let (coms, states) = PCS::commit(&ck, [&labeled_poly], Some(rng)).unwrap();

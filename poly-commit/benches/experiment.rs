@@ -7,10 +7,19 @@ use ark_ec::pairing::Pairing;
 use ark_pcs_bench_templates::*;
 use ark_poly::DenseUVPolynomial;
 use ark_poly::univariate::DensePolynomial as DenseUnivariatePoly;
-use ark_poly::{DenseMultilinearExtension, MultilinearExtension};
+use ark_poly::DenseMultilinearExtension;
 
-use ark_poly_commit::{ipa_pc::InnerProductArgPC, sonic_pc::SonicKZG10};
-use ark_poly_commit::linear_codes::{LinearCodePCS, MultilinearBrakedown,MultilinearLigero};
+use ark_poly_commit::{
+    ipa_pc::InnerProductArgPC,
+    marlin_pc::MarlinKZG10,
+    smart_pc::experiment_smart_template,
+    sonic_pc::SonicKZG10
+};
+use ark_poly_commit::linear_codes::{
+    LinearCodePCS,
+    MultilinearBrakedown,
+    MultilinearLigero
+};
 use ark_poly_commit::hyrax::HyraxPC;
 use blake2::Blake2s256;
 
@@ -20,14 +29,29 @@ use rand_chacha::ChaCha20Rng;
 
 const MIN_NUM_VARS: usize = 24;
 const MAX_NUM_VARS: usize = 25;
+const BIT_WIDTH: usize = 8;
 
 fn main() {
-    // experiment_brakedown();
-    // experiment_hyrax();
-    // experiment_lingero();
-    // experiment_kzg();
+    println!("Running experiments for 2^{} to 2^{} variables",
+        MIN_NUM_VARS, MAX_NUM_VARS - 1);
+    experiment_smart();
+    experiment_brakedown();
+    experiment_hyrax();
+    experiment_lingero();
+    experiment_kzg();
+    experiment_marlin();
     experiment_sonic();
-    // experiment_ipa();
+    experiment_ipa();
+}
+
+fn experiment_smart() {
+    type E = Bls12_381;
+    // ark_poly_commit::smart_pc::test_smart::<E>();
+
+    println!("\nSMART-PC on BLS12-381:");
+    for num_vars in (MIN_NUM_VARS..MAX_NUM_VARS).step_by(2) {
+        experiment_smart_template::<E>(num_vars);
+    }
 }
 
 fn experiment_brakedown() {
@@ -60,7 +84,18 @@ fn experiment_brakedown() {
         num_vars: usize,
         rng: &mut ChaCha20Rng,
     ) -> DenseMultilinearExtension<F> {
-        DenseMultilinearExtension::rand(num_vars, rng)
+        // DenseMultilinearExtension::rand(num_vars, rng)
+
+        use rand::Rng;
+
+        // Generate a random polynomial with random short-bit-width coefficients
+        let n_coeffs = 1 << num_vars;
+        // Test short bit-width polynomials
+        let coeffs: Vec<F> = (0..n_coeffs).into_iter().map(|_|{
+            F::from( rng.gen_range(0..(1<<BIT_WIDTH - 2)) as i64 - (1<<BIT_WIDTH-1) )
+        }).collect();
+        DenseMultilinearExtension::from_evaluations_slice(
+            num_vars,&coeffs[0..n_coeffs])
     }
     
     fn rand_point_brakedown_ml<F: PrimeField>(num_vars: usize, rng: &mut ChaCha20Rng) -> Vec<F> {
@@ -84,7 +119,17 @@ fn experiment_hyrax() {
         num_vars: usize,
         rng: &mut ChaCha20Rng,
     ) -> DenseMultilinearExtension<F> {
-        DenseMultilinearExtension::rand(num_vars, rng)
+        // DenseMultilinearExtension::rand(num_vars, rng)
+
+        use rand::Rng;
+        // Generate a random polynomial with random short-bit-width coefficients
+        let n_coeffs = 1 << num_vars;
+        // Test short bit-width polynomials
+        let coeffs: Vec<F> = (0..n_coeffs).into_iter().map(|_|{
+            F::from( rng.gen_range(0..(1<<BIT_WIDTH - 2)) as i64 - (1<<BIT_WIDTH-1) )
+        }).collect();
+        DenseMultilinearExtension::from_evaluations_slice(
+            num_vars,&coeffs[0..n_coeffs])
     }
 
     fn rand_point_hyrax<F: PrimeField>(num_vars: usize, rng: &mut ChaCha20Rng) -> Vec<F> {
@@ -131,7 +176,17 @@ fn experiment_lingero() {
         num_vars: usize,
         rng: &mut ChaCha20Rng,
     ) -> DenseMultilinearExtension<F> {
-        DenseMultilinearExtension::rand(num_vars, rng)
+        // DenseMultilinearExtension::rand(num_vars, rng)
+
+        // Generate a random polynomial with random short-bit-width coefficients
+        use rand::Rng;
+        let n_coeffs = 1 << num_vars;
+        // Test short bit-width polynomials
+        let coeffs: Vec<F> = (0..n_coeffs).into_iter().map(|_|{
+            F::from( rng.gen_range(0..(1<<BIT_WIDTH - 2)) as i64 - (1<<BIT_WIDTH-1) )
+        }).collect();
+        DenseMultilinearExtension::from_evaluations_slice(
+            num_vars,&coeffs[0..n_coeffs])
     }
 
     fn rand_point_ligero_ml<F: PrimeField>(num_vars: usize, rng: &mut ChaCha20Rng) -> Vec<F> {
@@ -144,6 +199,46 @@ fn experiment_lingero() {
             num_vars,
             rand_poly_ligero_ml,
             rand_point_ligero_ml
+        );
+    }
+}
+
+
+fn experiment_marlin() {
+    #![allow(non_camel_case_types)]
+    use ark_poly::univariate::DensePolynomial as DensePoly;
+
+    type UniPoly_381 = DensePoly<<Bls12_381 as Pairing>::ScalarField>;
+
+    type PC<E, P> = MarlinKZG10<E, P>;
+    type PC_Bls12_381 = PC<Bls12_381, UniPoly_381>;
+
+    fn rand_poly_marlin<F: PrimeField>(
+        degree: usize,
+        rng: &mut ChaCha20Rng,
+    ) -> DensePoly<F> {
+        // DenseUVPolynomial::rand(degree, rng)
+
+        // Generate a random polynomial with random short-bit-width coefficients
+        use rand::Rng;
+        // Test short bit-width polynomials
+        let coeffs: Vec<F> = (0..degree).into_iter().map(|_|{
+            F::from( rng.gen_range(0..(1<<BIT_WIDTH - 2)) as i64 - (1<<BIT_WIDTH-1) )
+        }).collect();
+        DenseUVPolynomial::from_coefficients_vec(coeffs)        
+
+    }
+
+    fn rand_point_marlin<F: PrimeField>(_: usize, rng: &mut ChaCha20Rng) -> F {
+        F::rand(rng)
+    }
+
+    println!("\nMarlin-PC on BLS12-381:");
+    for num_vars in (MIN_NUM_VARS..MAX_NUM_VARS).step_by(2) {
+        experiment::<_,_, PC_Bls12_381>(
+            2_usize.pow(num_vars as u32),
+            rand_poly_marlin,
+            rand_point_marlin // Add the type parameter here
         );
     }
 }
@@ -161,7 +256,16 @@ fn experiment_sonic() {
         degree: usize,
         rng: &mut ChaCha20Rng,
     ) -> DensePoly<F> {
-        DenseUVPolynomial::rand(degree, rng)
+        // DenseUVPolynomial::rand(degree, rng)
+
+        // Generate a random polynomial with random short-bit-width coefficients
+        use rand::Rng;
+        // Test short bit-width polynomials
+        let coeffs: Vec<F> = (0..degree).into_iter().map(|_|{
+            F::from( rng.gen_range(0..(1<<BIT_WIDTH - 2)) as i64 - (1<<BIT_WIDTH-1) )
+        }).collect();
+        DenseUVPolynomial::from_coefficients_vec(coeffs)        
+
     }
 
     fn rand_point_sonic<F: PrimeField>(_: usize, rng: &mut ChaCha20Rng) -> F {
@@ -186,7 +290,15 @@ fn experiment_ipa() {
     type IPA_JubJub = InnerProductArgPC<ark_ed_on_bls12_381::EdwardsAffine, Blake2s256, UniPoly>;
 
     fn rand_poly_ipa_pc<F: PrimeField>(degree: usize, rng: &mut ChaCha20Rng) -> DenseUnivariatePoly<F> {
-        DenseUnivariatePoly::rand(degree, rng)
+        // DenseUnivariatePoly::rand(degree, rng)
+
+        // Generate a random polynomial with random short-bit-width coefficients
+        use rand::Rng;
+        // Test short bit-width polynomials
+        let coeffs: Vec<F> = (0..degree).into_iter().map(|_|{
+            F::from( rng.gen_range(0..(1<<BIT_WIDTH - 2)) as i64 - (1<<BIT_WIDTH-1) )
+        }).collect();
+        DenseUnivariatePoly::from_coefficients_vec(coeffs)  
     }
 
     fn rand_point_ipa_pc<F: PrimeField>(_: usize, rng: &mut ChaCha20Rng) -> F {
@@ -205,7 +317,6 @@ fn experiment_ipa() {
 
 fn experiment_kzg() {
     #![allow(non_camel_case_types)]
-    use ark_bls12_381::Bls12_381;
     use ark_poly::univariate::DensePolynomial as DensePoly;
 
     type UniPoly_381 = DensePoly<<Bls12_381 as Pairing>::ScalarField>;

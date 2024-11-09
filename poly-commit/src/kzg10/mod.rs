@@ -519,9 +519,18 @@ where
 
     let start_commit = Instant::now();
     let p = P::rand(degree, rng);
+
+    // Test short bit-width polynomials
+    let coeffs = (0..degree).into_par_iter().map(|_|{
+        use rand::Rng;
+        let mut rng = rand::thread_rng();
+        E::ScalarField::from(rng.gen_range(-127..127))
+        }).collect();
+    let p_short = P::from_coefficients_vec(coeffs);
+
     let hiding_bound = Some(1);
     let (comm, rand) =
-        KZG10::<E, P>::commit(&ck, &p, hiding_bound, Some(rng)).unwrap();
+        KZG10::<E, P>::commit(&ck, &p_short, hiding_bound, Some(rng)).unwrap();
     let commit_time = start_commit.elapsed().as_secs_f64();
     println!("Commit time: {:?}s", commit_time);
 

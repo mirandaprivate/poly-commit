@@ -147,6 +147,9 @@ pub mod linear_codes;
 /// [hyrax]: https://eprint.iacr.org/2017/1132.pdf
 pub mod hyrax;
 
+/// Use trusted setup for Dory
+pub mod smart_pc;
+
 /// `QuerySet` is the set of queries that are to be made to a set of labeled polynomials/equations
 /// `p` that have previously been committed to. Each element of a `QuerySet` is a pair of
 /// `(label, (point_label, point))`, where `label` is the label of a polynomial in `p`,
