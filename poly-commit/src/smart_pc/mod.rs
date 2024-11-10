@@ -8,15 +8,15 @@ use ark_ec::pairing::{Pairing, PairingOutput};
 // };
 use ark_ff::{
     One,
-    // PrimeField,
     Field,
     UniformRand,
-    // Zero
 };
 // use ark_poly::DenseUVPolynomial;
 use ark_std::{
     // format,
-    marker::PhantomData, ops::Mul, rand::RngCore
+    marker::PhantomData,
+    rand::RngCore,
+    ops::{Add, Mul},
 };
 
 use ark_serialize::CanonicalSerialize;
@@ -32,6 +32,15 @@ pub use data_structures::*;
 mod utils;
 pub use utils::*;
 
+pub mod fiat_shamir;
+pub use fiat_shamir::*;
+use xi::{xi_from_challenges, xi_ip_from_challenges};
+
+/// subprotocols for the SMART PC
+pub mod sub_protocols;
+// use sub_protocols::*;
+
+pub mod xi;
 /// SMART_PC is an implementation of modified Dory
 pub struct SmartPC<E: Pairing> {
     _engine: PhantomData<E>,
@@ -40,25 +49,30 @@ pub struct SmartPC<E: Pairing> {
 impl<E> SmartPC<E>
 where
     E: Pairing,
+    E::ScalarField: CanonicalSerialize,
+    E::G1: CanonicalSerialize,
+    E::G2: CanonicalSerialize,
+    PairingOutput<E>: CanonicalSerialize,
 {
     /// Constructs public parameters when given as input the maximum degree `degree`
     /// for the polynomial commitment scheme.
     ///
     pub fn setup<R: RngCore>(
-        num_vars: usize,
+        qlog: usize,
         rng: &mut R,
     ) -> Result<UniversalParams<E>, Error> {
-        if num_vars < 1 {
+        if qlog < 1 {
             return Err(Error::DegreeIsZero);
         }
 
-        let q = 2_usize.pow((num_vars/2) as u32);
         let setup_time =
         start_timer!(||
             format!("Smart-PC::Setup with dimension 2^{}, 2^{} coefficients",
-            num_vars,
-            2 * num_vars)
+            qlog,
+            2 * qlog)
         );
+
+        let q = 1 << qlog;
         
         let nu = E::ScalarField::rand(rng);
         let hat_s = E::ScalarField::rand(rng);
@@ -76,6 +90,8 @@ where
 
         let hat_sq = cur;
 
+        assert_eq!(hat_sq, hat_s.pow([q as u64]));
+
         let mut powers_of_sq = vec![E::ScalarField::one()];
         cur = hat_sq;
         for _ in 0..(q-1) {
@@ -90,7 +106,7 @@ where
         .into_par_iter().map(|x| x * &nu)
         .collect::<Vec<_>>();
         
-        let s_g = g_hat.mul(hat_s);
+        let s_h = h_hat.mul(hat_s);
         let sq_h = h_hat.mul(hat_sq);
         let nu_g = g_hat.mul(nu);
         let nu_h = h_hat.mul(nu);
@@ -123,10 +139,10 @@ where
         
         let pp = UniversalParams {
             q,
-            num_vars,
+            num_vars: q,
             g_hat,
             h_hat,
-            s_g,
+            s_h,
             sq_h,
             nu_g,
             nu_h,
@@ -145,33 +161,34 @@ where
     }
 
     /// Outputs a commitment to a matrix
-    pub fn commit(
+    /// and intermediate tier-one commitment
+    pub fn commit_short(
         pp: &UniversalParams<E>,
         mat: &Vec<Vec<i32>>,
         hiding_factor: E::ScalarField,
         k: usize,
-    ) -> Result<PairingOutput<E>, Error> {
+    ) -> Result<(PairingOutput<E>, Vec<E::G1>), Error> {
 
-        let m = mat.len();
-        let n = mat[0].len();
+        let n = mat.len();
+        let m = mat[0].len();
 
         let commit_time = start_timer!(|| format!(
-            "Committing to polynomial with {:?} coefficients:",
-            m * n
+            "Committing to {:?}-vector:",
+            n * m
         ));
 
-        let vec_g = pp.vec_g[0..m].to_vec();
-        let vec_h = pp.vec_h[0..n].to_vec();
+        let vec_g = pp.vec_g[0..n].to_vec();
+        let vec_h = pp.vec_h[0..m].to_vec();
 
         let timer = Instant::now();
         let prepare_g =
             prepare_base_short_g1::<E>(&vec_g, k);
         let mut tier_one_vec = Vec::new();
-        for i in 0..m {
-            let row = &mat[i];
-            let commit_row = msm_g1_short_i32::<E>(
-                &prepare_g, &row, k);
-            tier_one_vec.push(commit_row);
+        for i in 0..n {
+            let col = &mat[i];
+            let commit_col = msm_g1_short_i32::<E>(
+                &prepare_g, &col, k);
+            tier_one_vec.push(commit_col);
         }
         let tier1_time = timer.elapsed().as_secs_f64();
         println!("Tier 1 time: {:?}s", tier1_time);
@@ -181,266 +198,554 @@ where
             + pp.tilde_u.mul(hiding_factor);
 
         end_timer!(commit_time);
+        Ok((result,tier_one_vec))
+    }
+
+    /// Outputs a commitment to a boolean matrix
+    /// and intermediate tier-one commitment
+    pub fn commit_boolean(
+        pp: &UniversalParams<E>,
+        mat: &Vec<Vec<bool>>,
+        hiding_factor: E::ScalarField,
+    ) -> Result<(PairingOutput<E>, Vec<E::G1>), Error> {
+
+        let n = mat.len();
+        let m = mat[0].len();
+
+        let commit_time = start_timer!(|| format!(
+            "Committing to boolean vector with {:?} coefficients:",
+            m * n
+        ));
+
+        let vec_g = pp.vec_g[0..m].to_vec();
+        let vec_h = pp.vec_h[0..n].to_vec();
+
+        let timer = Instant::now();
+        let mut tier_one_vec = Vec::new();
+        for i in 0..m {
+            let row = &mat[i];
+            let commit_row = boolean_msm_g1::<E>(
+                &vec_g, &row);
+            tier_one_vec.push(commit_row);
+        }
+        let tier1_time = timer.elapsed().as_secs_f64();
+        println!("Tier 1 time (boolean): {:?}s", tier1_time);
+
+        let result = inner_pairing_product(
+            &tier_one_vec, &vec_h)
+            + pp.tilde_u.mul(hiding_factor);
+
+        end_timer!(commit_time);
+        Ok((result,tier_one_vec))
+    }
+
+    /// On input a polynomial `p` and a `point`, outputs a [`Proof`] for the same.
+    pub fn eval(
+        pp: &UniversalParams<E>,
+        mat: &Vec<Vec<E::ScalarField>>,
+        xl: &Vec<E::ScalarField>,
+        xr: &Vec<E::ScalarField>,
+    ) -> (PairingOutput<E>, E::ScalarField) {
+        
+        let rng = &mut ark_std::test_rng();
+        
+        let v_tilde = E::ScalarField::rand(rng);
+
+        let l_vec = xi_from_challenges::<E>(&xl);
+        let r_vec = xi_from_challenges::<E>(&xr);
+
+        let la = proj_left::<E>(mat, &l_vec);
+        let v = inner_product::<E>(&la, &r_vec);
+
+        let com_v = pp.u.mul(&v) + pp.tilde_u.mul(&v_tilde);
+        
+        (com_v, v_tilde)
+    }
+
+    /// On input a polynomial `p` and a `point`, outputs a [`Proof`] for the same.
+    pub fn open (
+        pp: &UniversalParams<E>,
+        mat: &Vec<Vec<E::ScalarField>>,
+        xl: &Vec<E::ScalarField>,
+        xr: &Vec<E::ScalarField>,
+        v_com: PairingOutput<E>,
+        mat_com: PairingOutput<E>,
+        tier1: &Vec<E::G1>,
+        v_tilde: E::ScalarField,
+        mat_tilde: E::ScalarField,
+    ) -> Result<Trans<E>, Error> {
+
+        let mut fs = FiatShamir::new();
+        fs.push(&mat_com);
+        fs.push(&v_com);
+
+        let n = mat.len();
+        let m = mat[0].len();
+        start_timer!(|| format!(
+            "Opening a {:?}-vector:",
+            m * n
+        ));
+
+        let rng = &mut ark_std::test_rng();
+
+
+        let x = fs.gen_challenge::<E>();
+
+        let log_m = (m as u64).ilog2() as usize;
+        let log_n = (n as u64).ilog2() as usize;
+
+        let mut vec_l_tilde: Vec<PairingOutput<E>> = Vec::new();
+        let mut vec_r_tilde: Vec<PairingOutput<E>>= Vec::new();
+
+        let vec_l_hiding_factor: Vec<E::ScalarField> =
+        (0..(log_m+log_n)).map(|_| E::ScalarField::rand(rng)).collect();
+        let vec_r_hiding_factor: Vec<E::ScalarField> =
+        (0..(log_m+log_n)).map(|_| E::ScalarField::rand(rng)).collect();
+
+        let u_0 = E::pairing(pp.g_0, pp.h_0);
+        let u_tilde = pp.tilde_u;
+        let l_vec: Vec<E::ScalarField> = xi_from_challenges::<E>(&xl);
+        let r_vec: Vec<E::ScalarField> = xi_from_challenges::<E>(&xr);
+
+        let mut capital_a_current = tier1[0..n].to_vec();
+        let mut h_vec_current = pp.vec_h[0..n].to_vec();
+        let mut r_current = r_vec[0..n].to_vec();
+        
+        let mut challenges_n: Vec<E::ScalarField> = Vec::new();
+        let mut challenges_inv_n: Vec<E::ScalarField> = Vec::new();
+
+        let la: Vec<E::ScalarField> = proj_left::<E>(mat, &l_vec);
+
+        let mut v_current = la.to_vec();
+
+        for j in 0..log_n {
+
+            // println!("Within proj proving iteration");
+
+
+            let current_len = n / 2usize.pow(j as u32);
+            
+
+            let v_left = 
+                v_current[0..current_len/2].to_vec();
+            let v_right = 
+                v_current[current_len/2..current_len].to_vec();
+
+            let capital_a_left = 
+                capital_a_current[0..current_len/2].to_vec();
+            let capital_a_right = 
+                capital_a_current[current_len/2..current_len].to_vec();
+            
+            let r_left = 
+                r_current[0..current_len/2].to_vec();
+            let r_right = 
+                r_current[current_len/2..current_len].to_vec();
+            
+
+            let h_left = 
+                h_vec_current[0..current_len/2].to_vec();
+            let h_right = 
+                h_vec_current[current_len/2..current_len].to_vec();
+
+            let l_tr = 
+                inner_pairing_product(&capital_a_left, &h_right).mul(&x)
+                + u_0.mul(&inner_product::<E>(&v_left, &r_right));
+            let r_tr = 
+                inner_pairing_product(&capital_a_right, &h_left).mul(&x)
+                + u_0.mul(&inner_product::<E>(&v_right, &r_left));
+
+            let l_tr_tilde = l_tr + u_tilde.mul(&vec_l_hiding_factor[j]);
+            let r_tr_tilde = r_tr + u_tilde.mul(&vec_r_hiding_factor[j]);
+
+            vec_l_tilde.push(l_tr_tilde);
+            vec_r_tilde.push(r_tr_tilde);
+
+            fs.push(&l_tr_tilde);
+            fs.push(&r_tr_tilde);
+            
+            let x_j = fs.gen_challenge::<E>();
+            let x_j_inv = x_j.inverse().unwrap();
+
+            challenges_n.push(x_j);
+            challenges_inv_n.push(x_j_inv);
+
+            v_current = add_vec_zp::<E>(
+                &v_left,
+                &scalar_mul_vec_zp::<E>(
+                    &v_right, &x_j_inv),
+            );
+
+            capital_a_current = add_vec_g1::<E>(
+                &capital_a_left,
+                &scalar_mul_vec_g1::<E>(
+                    &capital_a_right, &x_j_inv),
+            );
+
+            h_vec_current = add_vec_g2::<E>(
+                &h_left,
+                &scalar_mul_vec_g2::<E>(
+                    &h_right, &x_j),
+            );
+
+            r_current = add_vec_zp::<E>(
+                &r_left,
+                &scalar_mul_vec_zp::<E>(
+                    &r_right, &x_j),
+            );
+
+        }
+
+
+        // let timer = Instant::now();
+
+        let xi_n_inv = xi_from_challenges::<E>(&challenges_inv_n);
+        
+        let a_xi_inv = proj_right::<E>(mat, &xi_n_inv);
+
+        // println!(" * Time for ket_zp: {:?}", timer.elapsed());
+
+        let h_reduce = h_vec_current[0];
+        let r_reduce = r_current[0];
+
+        let mut a_current: Vec<E::ScalarField> = a_xi_inv.to_vec();
+        
+        let mut g_vec_current = pp.vec_g[0..m].to_vec();
+        let mut l_current = l_vec[0..m].to_vec();
+        
+        let mut challenges_m: Vec<E::ScalarField> = Vec::new();
+        let mut challenges_inv_m: Vec<E::ScalarField> = Vec::new();
+        
+
+        for j in 0..log_m {
+
+            // println!("Within scalar_proj proving iteration");
+
+
+            let current_len = m / 2usize.pow(j as u32);
+            
+            let a_left = 
+                a_current[0..current_len/2].to_vec();
+            let a_right = 
+                a_current[current_len/2..current_len].to_vec();
+            
+            let l_left = 
+                l_current[0..current_len/2].to_vec();
+            let l_right = 
+                l_current[current_len/2..current_len].to_vec();
+            
+
+            let g_left = 
+                g_vec_current[0..current_len/2].to_vec();
+            let g_right = 
+                g_vec_current[current_len/2..current_len].to_vec();
+
+            let l_tr = 
+                E::pairing(msm_g1::<E>(&g_right, &a_left), h_reduce).mul(&x)
+                + u_0.mul(&r_reduce.mul(&inner_product::<E>(&a_left, &l_right)));
+            let r_tr = 
+                E::pairing(msm_g1::<E>(&g_left, &a_right), h_reduce).mul(&x)
+                + u_0.mul(&r_reduce.mul(inner_product::<E>(&a_right, &l_left)));
+
+            let l_tr_tilde = l_tr + u_tilde.mul(&vec_l_hiding_factor[j+log_n]);
+            let r_tr_tilde = r_tr + u_tilde.mul(&vec_r_hiding_factor[j+log_n]);
+
+            vec_l_tilde.push(l_tr_tilde);
+            vec_r_tilde.push(r_tr_tilde);
+
+            fs.push(&l_tr_tilde);
+            fs.push(&r_tr_tilde);
+            
+            let x_j = fs.gen_challenge::<E>();
+            let x_j_inv = x_j.inverse().unwrap();
+
+            challenges_m.push(x_j);
+            challenges_inv_m.push(x_j_inv);
+
+            a_current = add_vec_zp::<E>(
+                &a_left,
+                &scalar_mul_vec_zp::<E>(
+                    &a_right, &x_j_inv),
+            );
+
+            g_vec_current = add_vec_g1::<E>(
+                &g_left,
+                &scalar_mul_vec_g1::<E>(
+                    &g_right, &x_j),
+            );
+
+            l_current = add_vec_zp::<E>(
+                &l_left,
+                &scalar_mul_vec_zp::<E>(
+                    &l_right, &x_j),
+            );
+
+        }
+
+        let a_reduce = a_current[0];
+        let g_reduce = g_vec_current[0];
+        
+        // /////////////////////////////////////////////////////////////
+        // Add Zero-Knowledge from now on
+        // /////////////////////////////////////////////////////////////
+        
+
+        let xi_l =
+        xi_ip_from_challenges::<E>(&xl, &challenges_m);
+        let xi_r =
+        xi_ip_from_challenges::<E>(&xr, &challenges_n);
+        
+            
+        let base_rhs =  
+            u_0.mul(&(xi_l * xi_r))
+            + E::pairing(g_reduce.mul(&x), h_reduce);
+
+        let rhs_tilde = E::ScalarField::rand(rng);
+
+        let rhs_com = 
+            base_rhs.mul(&a_reduce) + u_tilde.mul(&rhs_tilde);
+
+        fs.push(&g_reduce);
+        fs.push(&h_reduce);    
+        fs.push(&rhs_com);
+        
+        
+        let mut lhs_tilde = v_tilde + x * mat_tilde;
+
+        // assert_eq!(current_index, 0);
+
+        for j in 0..log_n {
+            let l_tilde = vec_l_hiding_factor[j];
+            let r_tilde = vec_r_hiding_factor[j];
+            let x_j = challenges_n[j];
+            let x_j_inv = challenges_inv_n[j];
+            lhs_tilde = lhs_tilde + l_tilde * x_j + r_tilde * x_j_inv;
+        }  
+
+        for j in 0..log_m {
+            let l_tilde = vec_l_hiding_factor[j+log_n];
+            let r_tilde = vec_r_hiding_factor[j+log_n];
+            let x_j = challenges_m[j];
+            let x_j_inv = challenges_inv_m[j];
+            lhs_tilde = lhs_tilde + l_tilde * x_j + r_tilde * x_j_inv;
+        }  
+
+        let eq_tilde = lhs_tilde - rhs_tilde;
+    
+        let eq_tilde_com = u_tilde.mul(&eq_tilde);
+
+        let (v_g_prime, w_g) = 
+        sub_protocols::pip_g1_prove::<E>(
+            pp, 
+            &challenges_m, 
+            &mut fs,
+        );
+
+        let (v_h_prime, w_h) =
+        sub_protocols::pip_g2_prove::<E>(
+            pp, 
+            &challenges_n, 
+            &mut fs,
+        );
+
+        let (tr2, z1, z2) =
+        sub_protocols::schnorr2_prove(
+            pp,
+            base_rhs,
+            rhs_com,
+            a_reduce,
+            rhs_tilde,
+            &mut fs,
+        );
+
+
+        let (tr1, z11) =
+        sub_protocols::schnorr1_prove(
+            pp,
+            eq_tilde_com, 
+            eq_tilde, 
+            &mut fs,
+        ); 
+
+
+
+        let proof = Trans::<E> {
+            vec_l_tilde: vec_l_tilde,
+            vec_r_tilde: vec_r_tilde,
+            com_rhs_tilde: rhs_com,
+            v_g: g_reduce,
+            v_h: h_reduce,
+            v_g_prime: v_g_prime,
+            v_h_prime: v_h_prime,
+            w_g: w_g,
+            w_h: w_h,
+            schnorr_1_f: tr1,
+            schnorr_1_z: z11,
+            schnorr_2_f: tr2,
+            schnorr_2_z_1: z1,
+            schnorr_2_z_2: z2
+        };
+
+        Ok(proof)
+
+    }
+
+    /// Verifies that `value` is the evaluation at `point` of the polynomial
+    /// committed inside `comm`.
+    pub fn verify(
+        pp: &UniversalParams<E>,
+        mat_com: PairingOutput<E>,
+        v_com: PairingOutput<E>,
+        xl: &Vec<E::ScalarField>,
+        xr: &Vec<E::ScalarField>,
+        proof: &Trans<E>,
+    ) -> Result<bool, Error> {
+        let check_time = start_timer!(|| "Checking evaluation");
+
+        let mut fs = FiatShamir::new();
+        fs.push(&mat_com);
+        fs.push(&v_com);
+
+        let log_m = xl.len();
+        let log_n = xr.len();
+
+        let u_0 = pp.u;
+
+        let x = fs.gen_challenge::<E>();
+        
+        let mut lhs: PairingOutput<E> = 
+            v_com.add(mat_com.mul(&x));
+
+        let vec_l_tilde = &proof.vec_l_tilde;
+        let vec_r_tilde = &proof.vec_r_tilde;
+        
+        let mut challenges_n: Vec<E::ScalarField> = Vec::new();
+        let mut challenges_inv_n: Vec<E::ScalarField> = Vec::new();
+
+        for j in 0..log_n {
+
+            let l_tr = vec_l_tilde[j];
+            let r_tr = vec_r_tilde[j];
+            fs.push(&l_tr);
+            fs.push(&r_tr);
+
+            let x_j = fs.gen_challenge::<E>();
+            let x_j_inv = x_j.inverse().unwrap();
+            lhs = lhs + l_tr.mul(&x_j) + r_tr.mul(&x_j_inv);
+            challenges_n.push(x_j);
+            challenges_inv_n.push(x_j_inv);
+
+        }
+
+        let mut challenges_m: Vec<E::ScalarField> = Vec::new();
+        let mut challenges_inv_m: Vec<E::ScalarField> = Vec::new();
+
+        for j in 0..log_m {
+
+            let l_tr = vec_l_tilde[log_n + j];
+            let r_tr = vec_r_tilde[log_n + j];
+            fs.push(&l_tr);
+            fs.push(&r_tr);
+
+            let x_j = fs.gen_challenge::<E>();
+            let x_j_inv = x_j.inverse().unwrap();
+            lhs = lhs + l_tr.mul(&x_j) + r_tr.mul(&x_j_inv);
+            challenges_m.push(x_j);
+            challenges_inv_m.push(x_j_inv);
+        }
+
+
+        let xi_l =
+        xi_ip_from_challenges::<E>(&xl, &challenges_m);
+        let xi_r =
+        xi_ip_from_challenges::<E>(&xr, &challenges_n);
+        
+        let base_rhs =  
+            u_0.mul(&(xi_l * xi_r))
+            + E::pairing(proof.v_g.mul(&x), proof.v_h);
+        let rhs_blind = proof.com_rhs_tilde;
+        let eq_tilde_com = lhs - rhs_blind;
+        
+        let v_g = proof.v_g;
+        let v_h = proof.v_h;
+
+        fs.push(&v_g);
+        fs.push(&v_h);    
+        fs.push(&rhs_blind);
+        
+
+        let check1 = 
+        sub_protocols::pip_g1_verify::<E>(
+            pp, 
+            &challenges_m, 
+            v_g,
+            proof.v_g_prime,
+            proof.w_g,
+            &mut fs,
+        );
+
+        let check2 =
+        sub_protocols::pip_g2_verify::<E>(
+            pp, 
+            &challenges_n,
+            v_h,
+            proof.v_h_prime,
+            proof.w_h, 
+            &mut fs,
+        );
+
+        let check3 =
+        sub_protocols::schnorr2_verify(
+            pp,
+            base_rhs,
+            rhs_blind,
+            (proof.schnorr_2_f,proof.schnorr_2_z_1,proof.schnorr_2_z_2),
+            &mut fs,
+        );
+
+        let check4 =
+        sub_protocols::schnorr1_verify(
+            pp,
+            eq_tilde_com, 
+            (proof.schnorr_1_f,proof.schnorr_1_z), 
+            &mut fs,
+        ); 
+
+        
+        // println!(" check 1 {:?}", check1);
+        // println!(" check 2 {:?}", check2);
+        // println!(" check 3 {:?}", check3);
+        // println!(" check 4 {:?}", check4);
+        let result =  check1 && check2 && check3 && check4;
+
+        end_timer!(check_time, || format!("Result: {}", result));
         Ok(result)
     }
 
-    // /// Compute witness polynomial.
-    // ///
-    // /// The witness polynomial $w(x)$ the quotient of the division (p(x) - p(z)) / (x - z)
-    // /// Observe that this quotient does not change with $z$ because
-    // /// $p(z)$ is the remainder term. We can therefore omit $p(z)$ when computing the quotient.
-    // pub fn compute_witness_polynomial(
-    //     p: &P,
-    //     point: P::Point,
-    //     randomness: &Randomness<E::ScalarField, P>,
-    // ) -> Result<(P, Option<P>), Error> {
-    //     let divisor = P::from_coefficients_vec(vec![-point, E::ScalarField::one()]);
-
-    //     let witness_time = start_timer!(|| "Computing witness polynomial");
-    //     let witness_polynomial = p / &divisor;
-    //     end_timer!(witness_time);
-
-    //     let random_witness_polynomial = if randomness.is_hiding() {
-    //         let random_p = &randomness.blinding_polynomial;
-
-    //         let witness_time = start_timer!(|| "Computing random witness polynomial");
-    //         let random_witness_polynomial = random_p / &divisor;
-    //         end_timer!(witness_time);
-    //         Some(random_witness_polynomial)
-    //     } else {
-    //         None
-    //     };
-
-    //     Ok((witness_polynomial, random_witness_polynomial))
-    // }
-
-    // /// Yields a [`Proof`] with a witness polynomial.
-    // pub fn open_with_witness_polynomial<'a>(
-    //     powers: &Powers<E>,
-    //     point: P::Point,
-    //     randomness: &Randomness<E::ScalarField, P>,
-    //     witness_polynomial: &P,
-    //     hiding_witness_polynomial: Option<&P>,
-    // ) -> Result<Proof<E>, Error> {
-    //     Self::check_degree_is_too_large(witness_polynomial.degree(), powers.size())?;
-    //     let (num_leading_zeros, witness_coeffs) =
-    //         skip_leading_zeros_and_convert_to_bigints(witness_polynomial);
-
-    //     let witness_comm_time = start_timer!(|| "Computing commitment to witness polynomial");
-    //     let mut w = <E::G1 as VariableBaseMSM>::msm_bigint(
-    //         &powers.powers_of_g[num_leading_zeros..],
-    //         &witness_coeffs,
-    //     );
-    //     end_timer!(witness_comm_time);
-
-    //     let random_v = if let Some(hiding_witness_polynomial) = hiding_witness_polynomial {
-    //         let blinding_p = &randomness.blinding_polynomial;
-    //         let blinding_eval_time = start_timer!(|| "Evaluating random polynomial");
-    //         let blinding_evaluation = blinding_p.evaluate(&point);
-    //         end_timer!(blinding_eval_time);
-
-    //         let random_witness_coeffs = convert_to_bigints(&hiding_witness_polynomial.coeffs());
-    //         let witness_comm_time =
-    //             start_timer!(|| "Computing commitment to random witness polynomial");
-    //         w += &<E::G1 as VariableBaseMSM>::msm_bigint(
-    //             &powers.powers_of_gamma_g,
-    //             &random_witness_coeffs,
-    //         );
-    //         end_timer!(witness_comm_time);
-    //         Some(blinding_evaluation)
-    //     } else {
-    //         None
-    //     };
-
-    //     Ok(Proof {
-    //         w: w.into_affine(),
-    //         random_v,
-    //     })
-    // }
-
-    // /// On input a polynomial `p` and a `point`, outputs a [`Proof`] for the same.
-    // pub fn open<'a>(
-    //     powers: &Powers<E>,
-    //     p: &P,
-    //     point: P::Point,
-    //     rand: &Randomness<E::ScalarField, P>,
-    // ) -> Result<Proof<E>, Error> {
-    //     Self::check_degree_is_too_large(p.degree(), powers.size())?;
-    //     let open_time = start_timer!(|| format!("Opening polynomial of degree {}", p.degree()));
-
-    //     let witness_time = start_timer!(|| "Computing witness polynomials");
-    //     let (witness_poly, hiding_witness_poly) = Self::compute_witness_polynomial(p, point, rand)?;
-    //     end_timer!(witness_time);
-
-    //     let proof = Self::open_with_witness_polynomial(
-    //         powers,
-    //         point,
-    //         rand,
-    //         &witness_poly,
-    //         hiding_witness_poly.as_ref(),
-    //     );
-
-    //     end_timer!(open_time);
-    //     proof
-    // }
-
-    // /// Verifies that `value` is the evaluation at `point` of the polynomial
-    // /// committed inside `comm`.
-    // pub fn check(
-    //     vk: &VerifierKey<E>,
-    //     comm: &Commitment<E>,
-    //     point: E::ScalarField,
-    //     value: E::ScalarField,
-    //     proof: &Proof<E>,
-    // ) -> Result<bool, Error> {
-    //     let check_time = start_timer!(|| "Checking evaluation");
-    //     let mut inner = comm.0.into_group() - &vk.g.mul(value);
-    //     if let Some(random_v) = proof.random_v {
-    //         inner -= &vk.gamma_g.mul(random_v);
-    //     }
-    //     let lhs = E::pairing(inner, vk.h);
-
-    //     let inner = vk.beta_h.into_group() - &vk.h.mul(point);
-    //     let rhs = E::pairing(proof.w, inner);
-
-    //     end_timer!(check_time, || format!("Result: {}", lhs == rhs));
-    //     Ok(lhs == rhs)
-    // }
-
-    // /// Check that each `proof_i` in `proofs` is a valid proof of evaluation for
-    // /// `commitment_i` at `point_i`.
-    // pub fn batch_check<R: RngCore>(
-    //     vk: &VerifierKey<E>,
-    //     commitments: &[Commitment<E>],
-    //     points: &[E::ScalarField],
-    //     values: &[E::ScalarField],
-    //     proofs: &[Proof<E>],
-    //     rng: &mut R,
-    // ) -> Result<bool, Error> {
-    //     let check_time =
-    //         start_timer!(|| format!("Checking {} evaluation proofs", commitments.len()));
-
-    //     let mut total_c = <E::G1>::zero();
-    //     let mut total_w = <E::G1>::zero();
-
-    //     let combination_time = start_timer!(|| "Combining commitments and proofs");
-    //     let mut randomizer = E::ScalarField::one();
-    //     // Instead of multiplying g and gamma_g in each turn, we simply accumulate
-    //     // their coefficients and perform a final multiplication at the end.
-    //     let mut g_multiplier = E::ScalarField::zero();
-    //     let mut gamma_g_multiplier = E::ScalarField::zero();
-    //     for (((c, z), v), proof) in commitments.iter().zip(points).zip(values).zip(proofs) {
-    //         let w = proof.w;
-    //         let mut temp = w.mul(*z);
-    //         temp += &c.0;
-    //         let c = temp;
-    //         g_multiplier += &(randomizer * v);
-    //         if let Some(random_v) = proof.random_v {
-    //             gamma_g_multiplier += &(randomizer * &random_v);
-    //         }
-    //         total_c += &c.mul(randomizer);
-    //         total_w += &w.mul(randomizer);
-    //         // We don't need to sample randomizers from the full field,
-    //         // only from 128-bit strings.
-    //         randomizer = u128::rand(rng).into();
-    //     }
-    //     total_c -= &vk.g.mul(g_multiplier);
-    //     total_c -= &vk.gamma_g.mul(gamma_g_multiplier);
-    //     end_timer!(combination_time);
-
-    //     let to_affine_time = start_timer!(|| "Converting results to affine for pairing");
-    //     let affine_points = E::G1::normalize_batch(&[-total_w, total_c]);
-    //     let (total_w, total_c) = (affine_points[0], affine_points[1]);
-    //     end_timer!(to_affine_time);
-
-    //     let pairing_time = start_timer!(|| "Performing product of pairings");
-    //     let result = E::multi_pairing(
-    //         [total_w, total_c],
-    //         [vk.prepared_beta_h.clone(), vk.prepared_h.clone()],
-    //     )
-    //     .0
-    //     .is_one();
-    //     end_timer!(pairing_time);
-    //     end_timer!(check_time, || format!("Result: {}", result));
-    //     Ok(result)
-    // }
-
-    // pub(crate) fn check_degree_is_too_large(degree: usize, num_powers: usize) -> Result<(), Error> {
-    //     let num_coefficients = degree + 1;
-    //     if num_coefficients > num_powers {
-    //         Err(Error::TooManyCoefficients {
-    //             num_coefficients,
-    //             num_powers,
-    //         })
-    //     } else {
-    //         Ok(())
-    //     }
-    // }
-
-    // pub(crate) fn check_hiding_bound(
-    //     hiding_poly_degree: usize,
-    //     num_powers: usize,
-    // ) -> Result<(), Error> {
-    //     if hiding_poly_degree == 0 {
-    //         Err(Error::HidingBoundIsZero)
-    //     } else if hiding_poly_degree >= num_powers {
-    //         // The above check uses `>=` because committing to a hiding poly with
-    //         // degree `hiding_poly_degree` requires `hiding_poly_degree + 1`
-    //         // powers.
-    //         Err(Error::HidingBoundToolarge {
-    //             hiding_poly_degree,
-    //             num_powers,
-    //         })
-    //     } else {
-    //         Ok(())
-    //     }
-    // }
-
-    // pub(crate) fn check_degrees_and_bounds<'a>(
-    //     supported_degree: usize,
-    //     max_degree: usize,
-    //     enforced_degree_bounds: Option<&[usize]>,
-    //     p: &'a LabeledPolynomial<E::ScalarField, P>,
-    // ) -> Result<(), Error> {
-    //     if let Some(bound) = p.degree_bound() {
-    //         let enforced_degree_bounds =
-    //             enforced_degree_bounds.ok_or(Error::UnsupportedDegreeBound(bound))?;
-
-    //         if enforced_degree_bounds.binary_search(&bound).is_err() {
-    //             Err(Error::UnsupportedDegreeBound(bound))
-    //         } else if bound < p.degree() || bound > max_degree {
-    //             return Err(Error::IncorrectDegreeBound {
-    //                 poly_degree: p.degree(),
-    //                 degree_bound: p.degree_bound().unwrap(),
-    //                 supported_degree,
-    //                 label: p.label().to_string(),
-    //             });
-    //         } else {
-    //             Ok(())
-    //         }
-    //     } else {
-    //         Ok(())
-    //     }
-    // }
 }
+
+
 
 
 /// Experiment for SMART PC
 pub fn experiment_smart_template<E>(num_vars: usize)
 where
     E: Pairing,
+    E::ScalarField: CanonicalSerialize,
+    E::G1: CanonicalSerialize,
+    E::G2: CanonicalSerialize,
+    PairingOutput<E>: CanonicalSerialize,
 {
 
     let rng = &mut ark_std::test_rng();
 
     let start_setup = Instant::now();
-    let pp = SmartPC::<E>::setup(num_vars, rng).unwrap();
+    let pp = SmartPC::<E>::setup(num_vars/2, rng).unwrap();
     let setup_time = start_setup.elapsed().as_secs_f64();
     println!("Setup time: {:?}s", setup_time);
 
-    let n : usize = 1 << num_vars/2;
+    let n: usize = 1 << (num_vars/2);
     let k = 8;
-    let mat = (0..n).into_par_iter()
+    let mat: Vec<Vec<i32>> = (0..n).into_par_iter()
     .map(|_|{
         use rand::Rng;
         let mut rng = thread_rng();
@@ -449,13 +754,18 @@ where
         }).collect()
     }).collect();
 
+    let mat_scalar =
+    convert_i32_to_scalar_mat::<E>(&mat);
+
+
     let hiding_factor = E::ScalarField::rand(rng);
 
     let start_commit = Instant::now();
     let comm =
-        SmartPC::<E>::commit(&pp, &mat, hiding_factor, k).unwrap();
+        SmartPC::<E>::commit_short(&pp, &mat, hiding_factor, k).unwrap();
     let commit_time = start_commit.elapsed().as_secs_f64();
     println!("Commit time: {:?}s", commit_time);
+
 
     let mut commit_writer = Vec::new();
     comm.serialize_compressed(&mut commit_writer).unwrap();
@@ -463,31 +773,78 @@ where
     println!("Commit size: {:?}B", commit_size);
 
 
-    // let mut commit_writer = Vec::new();
-    // comm.serialize_compressed(&mut commit_writer).unwrap();
-    // let commit_size = commit_writer.len();
-    // println!("Commit size: {:?}B", commit_size);
+    let xl =
+    (0..num_vars/2).map(|_| E::ScalarField::rand(rng)).collect();
+    let xr =
+    (0..num_vars/2).map(|_| E::ScalarField::rand(rng)).collect();
+    let (v_com, v_tilde) =
+    SmartPC::<E>::eval(&pp, &mat_scalar, &xl, &xr);
 
-    // let start_open = Instant::now();
-    // let point = E::ScalarField::rand(rng);
-    // let value = p.evaluate(&point);
-    // let proof = KZG10::<E, P>::open(&ck, &p, point, &rand).unwrap();
-    // let open_time = start_open.elapsed().as_secs_f64();
-    // println!("Open time: {:?}s", open_time);
+    let start_open = Instant::now();
+    let proof = SmartPC::<E>::open(
+        &pp, &mat_scalar, &xl, &xr,
+        v_com, comm.0, &comm.1, v_tilde, hiding_factor,
+    );
+    let proof = proof.unwrap();
+    let open_time = start_open.elapsed().as_secs_f64();
+    println!("Open time: {:?}s", open_time);
 
-    // let verify_time = Instant::now();
-    // let verified = KZG10::<E, P>::check(&vk, &comm, point, value, &proof).unwrap();
-    // let verify_time = verify_time.elapsed().as_secs_f64()*1000.0;
-    // println!("Verify time: {:?}ms", verify_time);
+    let verify_time = Instant::now();
+    let check = SmartPC::<E>::verify(
+        &pp,
+        comm.0,
+        v_com,
+        &xl,
+        &xr,
+        &proof,
+    );
+    let check = check.unwrap();
+    let verify_time = verify_time.elapsed().as_secs_f64()*1000.0;
+    // println!("Check: {:?}", check);
+    println!("Verify time: {:?}ms", verify_time);
 
-    // let mut writer = Vec::new();
-    // proof.serialize_compressed(&mut writer).unwrap();
-    // let proof_size = writer.len();
-    // println!("Proof size: {:?}B", proof_size);
+    let mut writer = Vec::new();
+    proof.serialize_compressed(&mut writer).unwrap();
+    let proof_size = writer.len();
+    println!("Proof size: {:?}B", proof_size);
 
+    println!(
+        "SMART-PC  verified: {:?}",
+        check
+    );
+
+    // // Verify boolean matrix
+    // let boolean_mat = mat.iter().map(|row|{
+    //     row.iter().map(|x| *x > 0).collect()
+    // }).collect();
+    // let boolean_mat_scalar =
+    // convert_boolean_to_scalar_mat::<E>(&boolean_mat);
+    // let start_commit_boolean = Instant::now();
+    // let comm_boolean =
+    //     SmartPC::<E>::commit_boolean(&pp, &boolean_mat, hiding_factor).unwrap();
+    // let commit_time_boolean = start_commit_boolean.elapsed().as_secs_f64();
+    // println!("Commit time (boolean): {:?}s", commit_time_boolean);
+    // let (v_com, v_tilde) =
+    // SmartPC::<E>::eval(&pp, &boolean_mat_scalar, &xl, &xr);
+
+    // let proof = SmartPC::<E>::open(
+    //     &pp, &boolean_mat_scalar, &xl, &xr,
+    //     v_com, comm_boolean.0, &comm_boolean.1, v_tilde, hiding_factor,
+    // );
+    // let proof = proof.unwrap();
+
+    // let check = SmartPC::<E>::verify(
+    //     &pp,
+    //     comm_boolean.0,
+    //     v_com,
+    //     &xl,
+    //     &xr,
+    //     &proof,
+    // );
+    // let check = check.unwrap();
     // println!(
-    //     "KZG10 proof verified: {}",
-    //     KZG10::<E, P>::check(&vk, &comm, point, value, &proof).unwrap()
+    //     "SMART-PC (boolean)  verified: {:?}",
+    //     check
     // );
 }
 

@@ -30,7 +30,7 @@ pub struct UniversalParams<E: Pairing> {
     /// G2 generator
     pub h_hat: E::G2,
     /// G1 element
-    pub s_g: E::G1,
+    pub s_h: E::G2,
     /// G2 element
     pub sq_h: E::G2,
     /// G1 element
@@ -65,7 +65,7 @@ impl<E: Pairing> Valid for UniversalParams<E> {
         self.num_vars.check()?;
         self.g_hat.check()?;
         self.h_hat.check()?;
-        self.s_g.check()?;
+        self.s_h.check()?;
         self.sq_h.check()?;
         self.nu_g.check()?;
         self.nu_h.check()?;
@@ -93,7 +93,7 @@ impl<E: Pairing> CanonicalSerialize for UniversalParams<E> {
         self.num_vars.serialize_with_mode(&mut writer, compress)?;
         self.g_hat.serialize_with_mode(&mut writer, compress)?;
         self.h_hat.serialize_with_mode(&mut writer, compress)?;
-        self.s_g.serialize_with_mode(&mut writer, compress)?;
+        self.s_h.serialize_with_mode(&mut writer, compress)?;
         self.sq_h.serialize_with_mode(&mut writer, compress)?;
         self.nu_g.serialize_with_mode(&mut writer, compress)?;
         self.nu_h.serialize_with_mode(&mut writer, compress)?;
@@ -113,7 +113,7 @@ impl<E: Pairing> CanonicalSerialize for UniversalParams<E> {
             + self.num_vars.serialized_size(compress)
             + self.g_hat.serialized_size(compress)
             + self.h_hat.serialized_size(compress)
-            + self.s_g.serialized_size(compress)
+            + self.s_h.serialized_size(compress)
             + self.sq_h.serialized_size(compress)
             + self.nu_g.serialized_size(compress)
             + self.nu_h.serialized_size(compress)
@@ -143,7 +143,7 @@ impl<E: Pairing> CanonicalDeserialize for UniversalParams<E> {
             &mut reader, compress, Validate::No)?;
         let h_hat = E::G2::deserialize_with_mode(
             &mut reader, compress, Validate::No)?;
-        let s_g = E::G1::deserialize_with_mode(
+        let s_h = E::G2::deserialize_with_mode(
             &mut reader, compress, Validate::No)?;
         let sq_h = E::G2::deserialize_with_mode(
             &mut reader, compress, Validate::No)?;
@@ -175,7 +175,7 @@ impl<E: Pairing> CanonicalDeserialize for UniversalParams<E> {
             num_vars,
             g_hat,
             h_hat,
-            s_g,
+            s_h,
             sq_h,
             nu_g,
             nu_h,
@@ -212,39 +212,36 @@ pub struct Trans<E: Pairing> {
     /// The R in Bulletproofs with hiding factors
     pub vec_r_tilde: Vec<PairingOutput<E>>,
     /// Hiding commitment to hat_a
-    pub hat_a_tilde: Vec<PairingOutput<E>>,
-    /// hat_a V_G V_H with hiding factors
-    pub hat_av_tilde: Vec<PairingOutput<E>>,
+    pub com_rhs_tilde: PairingOutput<E>,
     /// V_G in G1
     pub v_g: E::G1,
     /// V_H in G2
     pub v_h: E::G2,
     /// V_G_prime in G2
-    pub v_g_prime: E::G2,
+    pub v_g_prime: E::G1,
     /// V_H_prime in G1
-    pub v_h_prime: E::G1,
+    pub v_h_prime: E::G2,
     /// W_G in G1
     pub w_g: E::G1,
     /// W_H in G1
     pub w_h: E::G1,
     /// Schnorr 1 Group element
-    pub schnorr_1_f: Vec<PairingOutput<E>>,
+    pub schnorr_1_f: PairingOutput<E>,
     /// Schnorr 1 Zp element
-    pub schnorr_1_z: Vec<E::ScalarField>,
+    pub schnorr_1_z: E::ScalarField,
     /// Schnorr 2 Group element
-    pub schnorr_2_f: Vec<PairingOutput<E>>,
+    pub schnorr_2_f: PairingOutput<E>,
     /// Schnorr 2 Zp element 1
-    pub schnorr_2_z_1: Vec<E::ScalarField>,
+    pub schnorr_2_z_1: E::ScalarField,
     /// Schnorr 2 Zp element 2
-    pub schnorr_2_z_2: Vec<E::ScalarField>,
+    pub schnorr_2_z_2: E::ScalarField,
 }
 
 impl<E: Pairing> Valid for Trans<E> {
     fn check(&self) -> Result<(), SerializationError> {
         self.vec_l_tilde.check()?;
         self.vec_r_tilde.check()?;
-        self.hat_a_tilde.check()?;
-        self.hat_av_tilde.check()?;
+        self.com_rhs_tilde.check()?;
         self.v_g.check()?;
         self.v_h.check()?;
         self.v_g_prime.check()?;
@@ -268,8 +265,7 @@ impl<E: Pairing> CanonicalSerialize for Trans<E> {
     ) -> Result<(), SerializationError> {
         self.vec_l_tilde.serialize_with_mode(&mut writer, compress)?;
         self.vec_r_tilde.serialize_with_mode(&mut writer, compress)?;
-        self.hat_a_tilde.serialize_with_mode(&mut writer, compress)?;
-        self.hat_av_tilde.serialize_with_mode(&mut writer, compress)?;
+        self.com_rhs_tilde.serialize_with_mode(&mut writer, compress)?;
         self.v_g.serialize_with_mode(&mut writer, compress)?;
         self.v_h.serialize_with_mode(&mut writer, compress)?;
         self.v_g_prime.serialize_with_mode(&mut writer, compress)?;
@@ -286,8 +282,7 @@ impl<E: Pairing> CanonicalSerialize for Trans<E> {
     fn serialized_size(&self, compress: Compress) -> usize {
         self.vec_l_tilde.serialized_size(compress)
             + self.vec_r_tilde.serialized_size(compress)
-            + self.hat_a_tilde.serialized_size(compress)
-            + self.hat_av_tilde.serialized_size(compress)
+            + self.com_rhs_tilde.serialized_size(compress)
             + self.v_g.serialized_size(compress)
             + self.v_h.serialized_size(compress)
             + self.v_g_prime.serialized_size(compress)

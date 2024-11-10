@@ -1,8 +1,11 @@
+/// This module contains utility functions for the smart polynomial commitment scheme.
 use ark_ec::{pairing::{Pairing, PairingOutput},
     CurveGroup, VariableBaseMSM, PrimeGroup, AdditiveGroup
 };
 use ark_ff::UniformRand;
-use ark_std::{Zero, ops::Add};
+use ark_std::{Zero, One,
+    ops::{Add, Mul}
+};
 
 //     borrow::Borrow,
 //     fmt::{Debug, Display, Formatter, Result as FmtResult},
@@ -18,6 +21,8 @@ use ark_std::{Zero, ops::Add};
 
 
 use rayon::prelude::*;
+
+// use super::{FiatShamir, UniversalParams};
 // Add this line
 
 // type Gt = PairingOutput<Pairing>;
@@ -38,6 +43,10 @@ pub fn inner_pairing_product<E: Pairing>(
     a: &[E::G1],
     b: &[E::G2],
 ) ->  PairingOutput<E> {
+    let len = std::cmp::min(a.len(), b.len());
+    let a = &a[0..len];
+    let b = &b[0..len];
+
     E::multi_pairing(a, b)
 }
 
@@ -46,6 +55,10 @@ pub fn inner_product<E:Pairing>(
     a: &[E::ScalarField],
     b: &[E::ScalarField]
 ) -> E::ScalarField {
+    let len = std::cmp::min(a.len(), b.len());
+    let a = &a[0..len];
+    let b = &b[0..len];
+    
     a.par_iter().zip(b.par_iter())
     .map(|(a, b)| *a * b).sum()
 }
@@ -58,6 +71,9 @@ pub fn msm_g1<E: Pairing>(
 where
     E::G1: VariableBaseMSM + PrimeGroup,
 {
+    let len = std::cmp::min(a.len(), b.len());
+    let a = &a[0..len];
+    let b = &b[0..len];
     let a_affine = a.par_iter()
     .map(|x| x.into_affine()).collect::<Vec<E::G1Affine>>();
     <E::G1 as VariableBaseMSM>::msm(
@@ -74,6 +90,9 @@ pub fn msm_g2<E: Pairing>(
 where
     E::G2: VariableBaseMSM + PrimeGroup,
 {
+    let len = std::cmp::min(a.len(), b.len());
+    let a = &a[0..len];
+    let b = &b[0..len];
     let a_affine = a.par_iter()
     .map(|x| x.into_affine()).collect::<Vec<E::G2Affine>>();
     <E::G2 as VariableBaseMSM>::msm(
@@ -90,6 +109,10 @@ pub fn msm_g1_short_i64_naive<E: Pairing>(
 where
     E::G1: VariableBaseMSM + PrimeGroup,
 {
+    let len = std::cmp::min(a.len(), b.len());
+    let a = &a[0..len];
+    let b = &b[0..len];
+
     let a_affine =
         a.par_iter().map(|x| x.into_affine())
         .collect::<Vec<E::G1Affine>>();
@@ -107,6 +130,10 @@ pub fn boolean_msm_g1<E: Pairing>(
     b: &[bool],
 ) -> E::G1
 {
+    let len = std::cmp::min(a.len(), b.len());
+    let a = &a[0..len];
+    let b = &b[0..len];
+
     a.par_iter().zip(b.par_iter()).map(|(a, b)| {
         if *b {
             *a
@@ -122,6 +149,10 @@ pub fn boolean_msm_g2<E: Pairing>(
     b: &[bool],
 ) -> E::G2
 {
+    let len = std::cmp::min(a.len(), b.len());
+    let a = &a[0..len];
+    let b = &b[0..len];
+
     a.par_iter().zip(b.par_iter()).map(|(a, b)| {
         if *b {
             *a
@@ -152,6 +183,51 @@ pub fn add_vec_g2<E: Pairing>(
         a.add(b)
     }).collect()
 }
+
+/// Add two Zp vectors in parallel
+pub fn add_vec_zp<E: Pairing>(
+    a: &[E::ScalarField],
+    b: &[E::ScalarField],
+) -> Vec<E::ScalarField>
+{
+    a.par_iter().zip(b.par_iter()).map(|(a, b)| {
+        a.add(b)
+    }).collect()
+}
+
+/// Scalar mult zp vectors in parallel
+pub fn scalar_mul_vec_zp<E: Pairing>(
+    a: &[E::ScalarField],
+    x: &E::ScalarField,
+) -> Vec<E::ScalarField>
+{
+    a.par_iter().map(|a| {
+        a.mul(x)
+    }).collect()
+}
+
+/// Scalar mult zp vectors in parallel
+pub fn scalar_mul_vec_g1<E: Pairing>(
+    a: &[E::G1],
+    x: &E::ScalarField,
+) -> Vec<E::G1>
+{
+    a.par_iter().map(|a| {
+        a.mul(x)
+    }).collect()
+}
+
+/// Scalar mult zp vectors in parallel
+pub fn scalar_mul_vec_g2<E: Pairing>(
+    a: &[E::G2],
+    x: &E::ScalarField,
+) -> Vec<E::G2>
+{
+    a.par_iter().map(|a| {
+        a.mul(x)
+    }).collect()
+}
+
 
 /// Double a G1 vector in parallel
 pub fn double_vec_g1<E: Pairing>(
@@ -257,6 +333,9 @@ pub fn inner_pairing_product_slower<E: Pairing>(
     a: &[E::G1],
     b: &[E::G2],
 ) -> PairingOutput<E> {
+    let len = std::cmp::min(a.len(), b.len());
+    let a = &a[0..len];
+    let b = &b[0..len];
     type Gt<E> = PairingOutput<E>; // Introduce a local generic parameter for the type Gt
     a.par_iter()
         .zip(b.par_iter())
@@ -359,4 +438,66 @@ pub fn test_utils<E:Pairing>() {
     // println!("Inner pairing product: {:?}", c);
     let elapsed = start.elapsed().as_secs_f64() * 1000.0;
     println!("*** Time elapsed in boolean_msm_g2 is: {:?}ms", elapsed);
+}
+
+
+/// Convert a i32 mat to scalar mat
+pub fn convert_i32_to_scalar_mat<E>(a: &Vec<Vec<i32>>) -> Vec<Vec<E::ScalarField>>
+where
+    E: Pairing,
+{
+    a.iter().map(|x| {
+        x.par_iter().map(|&y| E::ScalarField::from(y as i64)).collect::<Vec<E::ScalarField>>()
+    }).collect::<Vec<Vec<E::ScalarField>>>()
+}
+
+/// Convert a boolean mat to scalar mat
+pub fn convert_boolean_to_scalar_mat<E>(a: &Vec<Vec<bool>>) -> Vec<Vec<E::ScalarField>>
+where
+    E: Pairing,
+{
+    a.iter().map(|x| {
+        x.par_iter().map(|&y| if y { E::ScalarField::one() } else { E::ScalarField::zero() }).collect::<Vec<E::ScalarField>>()
+    }).collect::<Vec<Vec<E::ScalarField>>>()
+}
+
+/// Projection of a col major matrix to the left vector
+pub fn proj_left<E:Pairing> (
+    mat: &Vec<Vec<E::ScalarField>>,
+    l_vec: &Vec<E::ScalarField>,
+) -> Vec<E::ScalarField> {
+    let n = mat.len();
+    let _ = mat[0].len();
+
+    let mut result = Vec::new();
+    for i in 0..n {
+        let col = &mat[i];
+        let ip_col = inner_product::<E>(
+            &l_vec, &col);
+        result.push(ip_col);
+    }
+    result
+}
+
+
+/// Projection of a col major matrix to the left vector
+pub fn proj_right<E:Pairing> (
+    mat: &Vec<Vec<E::ScalarField>>,
+    r_vec: &Vec<E::ScalarField>,
+) -> Vec<E::ScalarField> {
+    let _ = mat.len();
+    let m = mat[0].len();
+
+    let mut result = Vec::new();
+    for i in 0..m {
+        let row =
+        mat.par_iter()
+        .map(|x| x[i])
+        .collect::<Vec<E::ScalarField>>();
+        
+        let ip_row = inner_product::<E>(
+            &r_vec, &row);
+        result.push(ip_row);
+    }
+    result
 }
