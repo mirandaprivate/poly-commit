@@ -112,10 +112,11 @@ where
         let nu_h = h_hat.mul(nu);
         let hat_s_inv = hat_s.inverse().unwrap();
         let g_0 = g_hat.mul(hat_s_inv);
-        let h_0 = h_hat.clone();
-        let u = E::pairing(g_0, h_0);
+        let u = E::pairing(g_0, h_hat);
+        let tilde_g =
+            g_hat.mul(hat_s_inv *  hat_s_inv);
         let tilde_u = E::pairing(
-            g_hat.mul(hat_s_inv *  hat_s_inv), h_hat);
+            tilde_g, h_hat);
         let vec_g = powers_of_s
         .into_par_iter()
         .map(|x| g_hat.mul(x))
@@ -147,7 +148,7 @@ where
             nu_g,
             nu_h,
             g_0,
-            h_0,
+            tilde_g,
             u,
             tilde_u,
             vec_g,
@@ -341,7 +342,7 @@ where
         let vec_r_hiding_factor: Vec<E::ScalarField> =
         (0..(log_m+log_n)).map(|_| E::ScalarField::rand(rng)).collect();
 
-        let u_0 = E::pairing(pp.g_0, pp.h_0);
+        let u_0 = E::pairing(pp.g_0, pp.h_hat);
         let u_tilde = pp.tilde_u;
         let l_vec: Vec<E::ScalarField> = xi_from_challenges::<E>(&xl);
         let r_vec: Vec<E::ScalarField> = xi_from_challenges::<E>(&xr);

@@ -39,8 +39,8 @@ pub struct UniversalParams<E: Pairing> {
     pub nu_h: E::G2,
     /// G1 element
     pub g_0: E::G1,
-    /// G2 element
-    pub h_0: E::G2,
+    /// G1 element
+    pub tilde_g: E::G1,
     /// Gt base
     pub u: PairingOutput<E>,
     /// Gt base for randomness
@@ -70,7 +70,7 @@ impl<E: Pairing> Valid for UniversalParams<E> {
         self.nu_g.check()?;
         self.nu_h.check()?;
         self.g_0.check()?;
-        self.h_0.check()?;
+        self.tilde_g.check()?;
         self.u.check()?;
         self.tilde_u.check()?;
         self.vec_g.check()?;
@@ -98,7 +98,7 @@ impl<E: Pairing> CanonicalSerialize for UniversalParams<E> {
         self.nu_g.serialize_with_mode(&mut writer, compress)?;
         self.nu_h.serialize_with_mode(&mut writer, compress)?;
         self.g_0.serialize_with_mode(&mut writer, compress)?;
-        self.h_0.serialize_with_mode(&mut writer, compress)?;
+        self.tilde_g.serialize_with_mode(&mut writer, compress)?;
         self.u.serialize_with_mode(&mut writer, compress)?;
         self.tilde_u.serialize_with_mode(&mut writer, compress)?;
         self.vec_g.serialize_with_mode(&mut writer, compress)?;
@@ -118,7 +118,7 @@ impl<E: Pairing> CanonicalSerialize for UniversalParams<E> {
             + self.nu_g.serialized_size(compress)
             + self.nu_h.serialized_size(compress)
             + self.g_0.serialized_size(compress)
-            + self.h_0.serialized_size(compress)
+            + self.tilde_g.serialized_size(compress)
             + self.u.serialized_size(compress)
             + self.tilde_u.serialized_size(compress)
             + self.vec_g.serialized_size(compress)
@@ -153,7 +153,7 @@ impl<E: Pairing> CanonicalDeserialize for UniversalParams<E> {
             &mut reader, compress, Validate::No)?;
         let g_0 = E::G1::deserialize_with_mode(
             &mut reader, compress, Validate::No)?;
-        let h_0 = E::G2::deserialize_with_mode(
+        let tilde_g = E::G1::deserialize_with_mode(
             &mut reader, compress, Validate::No)?;
         let u = PairingOutput::<E>::deserialize_with_mode(
             &mut reader, compress, Validate::No)?;
@@ -180,7 +180,7 @@ impl<E: Pairing> CanonicalDeserialize for UniversalParams<E> {
             nu_g,
             nu_h,
             g_0,
-            h_0,
+            tilde_g,
             u,
             tilde_u,
             vec_g,
