@@ -160,6 +160,46 @@ where
         Ok(pp)
     }
 
+
+    /// Outputs a commitment to a matrix
+    /// and intermediate tier-one commitment
+    pub fn commit_full(
+        pp: &UniversalParams<E>,
+        mat: &Vec<Vec<E::ScalarField>>,
+        hiding_factor: E::ScalarField,
+        k: usize,
+    ) -> Result<(PairingOutput<E>, Vec<E::G1>), Error> {
+
+        let n = mat.len();
+        let m = mat[0].len();
+
+        let commit_time = start_timer!(|| format!(
+            "Committing to {:?}-vector:",
+            n * m
+        ));
+
+        let vec_g = pp.vec_g[0..n].to_vec();
+        let vec_h = pp.vec_h[0..m].to_vec();
+
+        let timer = Instant::now();
+        let mut tier_one_vec = Vec::new();
+        for i in 0..n {
+            let col = &mat[i];
+            let commit_col = msm_g1::<E>(
+                &vec_g, &col);
+            tier_one_vec.push(commit_col);
+        }
+        let tier1_time = timer.elapsed().as_secs_f64();
+        println!("Tier 1 time: {:?}s", tier1_time);
+
+        let result = inner_pairing_product(
+            &tier_one_vec, &vec_h)
+            + pp.tilde_u.mul(hiding_factor);
+
+        end_timer!(commit_time);
+        Ok((result,tier_one_vec))
+    }
+
     /// Outputs a commitment to a matrix
     /// and intermediate tier-one commitment
     pub fn commit_short(

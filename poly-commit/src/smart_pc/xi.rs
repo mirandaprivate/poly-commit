@@ -39,9 +39,11 @@ pub fn xi_ip_from_challenges<E: Pairing>(
     challenges1: &Vec<E::ScalarField>,
     challenges2: &Vec<E::ScalarField>,
 ) -> E::ScalarField {
-    let len = std::cmp::min(challenges1.len(), challenges2.len());
-    let challenges1 = &challenges1[0..len].to_vec();
-    let challenges2 = &challenges2[0..len].to_vec();
+    let len1 = challenges1.len();
+    let len2 = challenges2.len();
+    let len = std::cmp::min(len1, len2);
+    let challenges1 = &challenges1[len1-len..len1].to_vec();
+    let challenges2 = &challenges2[len2-len..len2].to_vec();
 
     let mut result = E::ScalarField::one();
 

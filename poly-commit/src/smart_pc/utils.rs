@@ -462,6 +462,7 @@ where
 }
 
 /// Projection of a col major matrix to the left vector
+/// Col Major
 pub fn proj_left<E:Pairing> (
     mat: &Vec<Vec<E::ScalarField>>,
     l_vec: &Vec<E::ScalarField>,
