@@ -167,7 +167,6 @@ where
         pp: &UniversalParams<E>,
         mat: &Vec<Vec<E::ScalarField>>,
         hiding_factor: E::ScalarField,
-        k: usize,
     ) -> Result<(PairingOutput<E>, Vec<E::G1>), Error> {
 
         let n = mat.len();
