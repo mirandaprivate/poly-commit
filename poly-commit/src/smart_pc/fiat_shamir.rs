@@ -14,16 +14,14 @@ use sha2::{Sha256, Digest};
 pub struct FiatShamir {
     /// The hash function used by the Fiat-Shamir transform
     pub hasher: Sha256,
-    /// The current state of hash value
-    pub state: [u8; 32],
 }
 
 impl FiatShamir {
     /// Create a new Fiat-Shamir transform
     pub fn new() -> Self {
-        let hasher = Sha256::new();
-        let state = [0u8; 32];
-        Self { hasher, state }
+        let mut hasher = Sha256::new();
+        hasher.update(b"poly-commit");
+        Self { hasher}
     }
 
     /// Update the state of the Fiat-Shamir transform
@@ -34,14 +32,13 @@ impl FiatShamir {
         let mut data_bytes = Vec::new();
         data.serialize_compressed(&mut data_bytes).unwrap();
         self.hasher.update(data_bytes);
-        self.state.copy_from_slice(self.hasher.finalize_reset().as_slice());
     }
 
     /// Get the current state of the Fiat-Shamir transform
     pub fn gen_challenge <E:Pairing> (&mut self) -> <E as Pairing>::ScalarField {
-        let challenge_bytes = &self.state;
+        let hash_value: [u8; 32] = self.hasher.clone().finalize().into();
         let challenge =
-        E::ScalarField::from_be_bytes_mod_order(challenge_bytes.as_slice());
+        E::ScalarField::from_le_bytes_mod_order(&hash_value);
 
         self.push::<E::ScalarField>(&challenge);
 
@@ -50,7 +47,7 @@ impl FiatShamir {
 
     /// Get the current state of the Fiat-Shamir transform
     pub fn get_state(&self) -> [u8; 32] {
-        self.state
+        self.hasher.clone().finalize().into()
     }
 
 }
