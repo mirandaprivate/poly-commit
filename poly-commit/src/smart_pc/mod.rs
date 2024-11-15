@@ -232,7 +232,7 @@ where
             tier_one_vec.push(commit_col);
         }
         let tier1_time = timer.elapsed().as_secs_f64();
-        println!("Tier 1 time: {:?}s", tier1_time);
+        println!("Tier 1 time in short bit: {:?}s", tier1_time);
 
         let result = inner_pairing_product(
             &tier_one_vec, &vec_h)
@@ -270,7 +270,7 @@ where
             tier_one_vec.push(commit_col);
         }
         let tier1_time = timer.elapsed().as_secs_f64();
-        println!("Tier 1 time: {:?}s", tier1_time);
+        println!("Tier 1 time in boolean: {:?}s", tier1_time);
 
         let result = inner_pairing_product(
             &tier_one_vec, &vec_h)
