@@ -25,7 +25,7 @@ use rand::thread_rng;
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
 
-
+/// Data structures for the SMART PC
 pub mod data_structures;
 pub use data_structures::*;
 
