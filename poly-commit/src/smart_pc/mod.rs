@@ -263,18 +263,20 @@ where
 
         let timer = Instant::now();
         let mut tier_one_vec = Vec::new();
-        for i in 0..m {
-            let row = &mat[i];
-            let commit_row = boolean_msm_g1::<E>(
-                &vec_g, &row);
-            tier_one_vec.push(commit_row);
+        for i in 0..n {
+            let col = &mat[i];
+            let commit_col = boolean_msm_g1::<E>(
+                &vec_g, &col);
+            tier_one_vec.push(commit_col);
         }
         let tier1_time = timer.elapsed().as_secs_f64();
-        println!("Tier 1 time (boolean): {:?}s", tier1_time);
+        println!("Tier 1 time: {:?}s", tier1_time);
 
         let result = inner_pairing_product(
             &tier_one_vec, &vec_h)
             + pp.tilde_u.mul(hiding_factor);
+
+        end_timer!(commit_time);
 
         end_timer!(commit_time);
         Ok((result,tier_one_vec))
@@ -854,39 +856,39 @@ where
         check
     );
 
-    // // Verify boolean matrix
-    // let boolean_mat = mat.iter().map(|row|{
-    //     row.iter().map(|x| *x > 0).collect()
-    // }).collect();
-    // let boolean_mat_scalar =
-    // convert_boolean_to_scalar_mat::<E>(&boolean_mat);
-    // let start_commit_boolean = Instant::now();
-    // let comm_boolean =
-    //     SmartPC::<E>::commit_boolean(&pp, &boolean_mat, hiding_factor).unwrap();
-    // let commit_time_boolean = start_commit_boolean.elapsed().as_secs_f64();
-    // println!("Commit time (boolean): {:?}s", commit_time_boolean);
-    // let (v_com, v_tilde) =
-    // SmartPC::<E>::eval(&pp, &boolean_mat_scalar, &xl, &xr);
+    // Verify boolean matrix
+    let boolean_mat = mat.iter().map(|row|{
+        row.iter().map(|x| *x > 0).collect()
+    }).collect();
+    let boolean_mat_scalar =
+    convert_boolean_to_scalar_mat::<E>(&boolean_mat);
+    let start_commit_boolean = Instant::now();
+    let comm_boolean =
+        SmartPC::<E>::commit_boolean(&pp, &boolean_mat, hiding_factor).unwrap();
+    let commit_time_boolean = start_commit_boolean.elapsed().as_secs_f64();
+    println!("Commit time (boolean): {:?}s", commit_time_boolean);
+    let (v_com, v_tilde) =
+    SmartPC::<E>::eval(&pp, &boolean_mat_scalar, &xl, &xr);
 
-    // let proof = SmartPC::<E>::open(
-    //     &pp, &boolean_mat_scalar, &xl, &xr,
-    //     v_com, comm_boolean.0, &comm_boolean.1, v_tilde, hiding_factor,
-    // );
-    // let proof = proof.unwrap();
+    let proof = SmartPC::<E>::open(
+        &pp, &boolean_mat_scalar, &xl, &xr,
+        v_com, comm_boolean.0, &comm_boolean.1, v_tilde, hiding_factor,
+    );
+    let proof = proof.unwrap();
 
-    // let check = SmartPC::<E>::verify(
-    //     &pp,
-    //     comm_boolean.0,
-    //     v_com,
-    //     &xl,
-    //     &xr,
-    //     &proof,
-    // );
-    // let check = check.unwrap();
-    // println!(
-    //     "SMART-PC (boolean)  verified: {:?}",
-    //     check
-    // );
+    let check = SmartPC::<E>::verify(
+        &pp,
+        comm_boolean.0,
+        v_com,
+        &xl,
+        &xr,
+        &proof,
+    );
+    let check = check.unwrap();
+    println!(
+        "SMART-PC (boolean)  verified: {:?}",
+        check
+    );
 }
 
 /// Test existing utils function
