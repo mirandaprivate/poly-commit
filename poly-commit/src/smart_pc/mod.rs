@@ -29,7 +29,8 @@ use rayon::prelude::*;
 mod data_structures;
 pub use data_structures::*;
 
-mod utils;
+/// utilitiy functions
+pub mod utils;
 pub use utils::*;
 
 pub mod fiat_shamir;
