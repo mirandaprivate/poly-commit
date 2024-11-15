@@ -870,6 +870,14 @@ where
     let (v_com, v_tilde) =
     SmartPC::<E>::eval(&pp, &boolean_mat_scalar, &xl, &xr);
 
+    // let i32_mat_from_boolean: Vec<Vec<i32>> =
+    // boolean_mat.iter().map(|row|{
+    //     row.iter().map(|x| if *x {1} else {0}).collect()
+    // }).collect();
+    // let comm_check =
+    // SmartPC::<E>::commit_short(&pp, &i32_mat_from_boolean, hiding_factor, k).unwrap();
+    // assert_eq!(comm_boolean, comm_check);
+
     let proof = SmartPC::<E>::open(
         &pp, &boolean_mat_scalar, &xl, &xr,
         v_com, comm_boolean.0, &comm_boolean.1, v_tilde, hiding_factor,
