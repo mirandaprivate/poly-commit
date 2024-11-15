@@ -179,8 +179,8 @@ where
             n * m
         ));
 
-        let vec_g = pp.vec_g[0..n].to_vec();
-        let vec_h = pp.vec_h[0..m].to_vec();
+        let vec_g = pp.vec_g[0..m].to_vec();
+        let vec_h = pp.vec_h[0..n].to_vec();
 
         let timer = Instant::now();
         let mut tier_one_vec = Vec::new();
@@ -218,8 +218,8 @@ where
             n * m
         ));
 
-        let vec_g = pp.vec_g[0..n].to_vec();
-        let vec_h = pp.vec_h[0..m].to_vec();
+        let vec_g = pp.vec_g[0..m].to_vec();
+        let vec_h = pp.vec_h[0..n].to_vec();
 
         let timer = Instant::now();
         let prepare_g =
