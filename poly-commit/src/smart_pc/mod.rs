@@ -26,7 +26,7 @@ use rand::thread_rng;
 use rayon::prelude::*;
 
 
-mod data_structures;
+pub mod data_structures;
 pub use data_structures::*;
 
 /// utilitiy functions
