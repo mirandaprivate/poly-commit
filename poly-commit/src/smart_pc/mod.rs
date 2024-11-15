@@ -790,7 +790,7 @@ where
         use rand::Rng;
         let mut rng = thread_rng();
         (0..n).into_iter().map(|_|{
-            rng.gen_range(-127..127)
+            rng.gen_range(-128..128)
         }).collect()
     }).collect();
 

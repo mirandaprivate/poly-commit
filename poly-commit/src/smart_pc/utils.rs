@@ -168,9 +168,22 @@ pub fn add_vec_g1<E: Pairing>(
     b: &[E::G1],
 ) -> Vec<E::G1>
 {
-    a.par_iter().zip(b.par_iter()).map(|(a, b)| {
+    let len = std::cmp::min(a.len(), b.len());
+
+    let mut result: Vec<E::G1> =
+    a[0..len].par_iter().zip(b[0..len].par_iter()).map(|(a, b)| {
         a.add(b)
-    }).collect()
+    }).collect();
+
+    if len < a.len() {
+        let rest = a[len..].to_vec();
+        result = [result, rest].concat();
+    } else if len < b.len() {
+        let rest = b[len..].to_vec();
+        result = [result, rest].concat();
+    }
+
+    result
 }
 
 /// Add two G2 vectors in parallel
