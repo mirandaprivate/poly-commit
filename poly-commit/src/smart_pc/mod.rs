@@ -784,7 +784,7 @@ where
     let start_setup = Instant::now();
     let pp = SmartPC::<E>::setup(num_vars/2, rng).unwrap();
     let setup_time = start_setup.elapsed().as_secs_f64();
-    println!("Setup time: {:?}s", setup_time);
+    println!("Setup time: {:?} s", setup_time);
 
     let n: usize = 1 << (num_vars/2);
     let k = 8;
@@ -807,13 +807,13 @@ where
     let comm =
         SmartPC::<E>::commit_short(&pp, &mat, hiding_factor, k).unwrap();
     let commit_time = start_commit.elapsed().as_secs_f64();
-    println!("Commit time: {:?}s", commit_time);
+    println!("Commit time: {:?} s", commit_time);
 
 
     let mut commit_writer = Vec::new();
     comm.serialize_compressed(&mut commit_writer).unwrap();
     let commit_size = commit_writer.len();
-    println!("Commit size: {:?}B", commit_size);
+    println!("Commit size: {:?} B", commit_size);
 
 
     let xl =
@@ -830,7 +830,7 @@ where
     );
     let proof = proof.unwrap();
     let open_time = start_open.elapsed().as_secs_f64();
-    println!("Open time: {:?}s", open_time);
+    println!("Open time: {:?} s", open_time);
 
     let verify_time = Instant::now();
     let check = SmartPC::<E>::verify(
@@ -844,12 +844,12 @@ where
     let check = check.unwrap();
     let verify_time = verify_time.elapsed().as_secs_f64()*1000.0;
     // println!("Check: {:?}", check);
-    println!("Verify time: {:?}ms", verify_time);
+    println!("Verify time: {:?} ms", verify_time);
 
     let mut writer = Vec::new();
     proof.serialize_compressed(&mut writer).unwrap();
     let proof_size = writer.len();
-    println!("Proof size: {:?}B", proof_size);
+    println!("Proof size: {:?} B", proof_size);
 
     println!(
         "SMART-PC  verified: {:?}",
@@ -866,7 +866,7 @@ where
     let comm_boolean =
         SmartPC::<E>::commit_boolean(&pp, &boolean_mat, hiding_factor).unwrap();
     let commit_time_boolean = start_commit_boolean.elapsed().as_secs_f64();
-    println!("Commit time (boolean): {:?}s", commit_time_boolean);
+    println!("Commit time (boolean): {:?} s", commit_time_boolean);
     let (v_com, v_tilde) =
     SmartPC::<E>::eval(&pp, &boolean_mat_scalar, &xl, &xr);
 

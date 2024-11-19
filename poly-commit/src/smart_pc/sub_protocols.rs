@@ -214,7 +214,6 @@ mod tests{
         let fs = &mut FiatShamir::new();
 
         let log_n = 5;
-        let n = 2usize.pow(log_n);
 
         let xs: Vec<Fr> = (0..log_n).map(|_| 
             Fr::rand(rng)

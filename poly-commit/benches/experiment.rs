@@ -1,3 +1,8 @@
+use std::fs::File;
+use std::io;
+use std::os::unix::io::AsRawFd;
+use libc;
+
 use ark_bls12_381::Bls12_381;
 use ark_crypto_primitives::{
     crh::{sha256::Sha256, CRHScheme, TwoToOneCRHScheme},
@@ -31,30 +36,53 @@ const MIN_NUM_VARS: usize = 24;
 const MAX_NUM_VARS: usize = 25;
 const BIT_WIDTH: usize = 8;
 
-fn main() {
+fn main() -> io::Result<()> {
     println!("Running experiments for 2^{} to 2^{} variables",
         MIN_NUM_VARS, MAX_NUM_VARS - 1);
-    experiment_smart();
-    experiment_brakedown();
-    experiment_hyrax();
-    experiment_lingero();
-    experiment_kzg();
-    experiment_marlin();
-    experiment_sonic();
-    experiment_ipa();
+
+
+    let log_file = File::create("experiment.log")?;
+    // experiment_lookups();
+
+    println!("Redirecting stdout to experiment.log...");
+
+
+    unsafe {
+        let stdout_fd = io::stdout().as_raw_fd();
+        let _ = libc::dup2(log_file.as_raw_fd(), stdout_fd);
+    }
+
+    println!("*********************************************");
+    println!("Running experiments for 2^{} to 2^{} variables",
+        MIN_NUM_VARS, MAX_NUM_VARS - 1);
+    
+    for num_vars in (MIN_NUM_VARS..MAX_NUM_VARS).step_by(2) {
+        
+        println!("\n\n***********************************************");
+        println!("Running experiments for 2e{} variables", num_vars);
+
+        experiment_smart(num_vars);
+        experiment_brakedown(num_vars);
+        experiment_hyrax(num_vars);
+        experiment_lingero(num_vars);
+        experiment_kzg(num_vars);
+        experiment_marlin(num_vars);
+        experiment_sonic(num_vars);
+        experiment_ipa(num_vars);
+    }
+
+    Ok(())
 }
 
-fn experiment_smart() {
+fn experiment_smart(num_vars: usize) {
     type E = Bls12_381;
     // ark_poly_commit::smart_pc::test_smart::<E>();
 
     println!("\nSMART-PC on BLS12-381:");
-    for num_vars in (MIN_NUM_VARS..MAX_NUM_VARS).step_by(2) {
-        experiment_smart_template::<E>(num_vars);
-    }
+    experiment_smart_template::<E>(num_vars);
 }
 
-fn experiment_brakedown() {
+fn experiment_brakedown(num_vars: usize) {
     struct MerkleTreeParams;
     type LeafH = LeafIdentityHasher;
     type CompressH = Sha256;
@@ -103,16 +131,14 @@ fn experiment_brakedown() {
     }
 
     println!("\nBrakedown on BN254:");
-    for num_vars in (MIN_NUM_VARS..MAX_NUM_VARS).step_by(2) {
-        experiment::<ark_bn254::Fr, MLE<ark_bn254::Fr>, Brakedown<ark_bn254::Fr>>(
-            num_vars,
-            rand_poly_brakedown_ml,
-            rand_point_brakedown_ml
-        );
-    }
+    experiment::<ark_bn254::Fr, MLE<ark_bn254::Fr>, Brakedown<ark_bn254::Fr>>(
+        num_vars,
+        rand_poly_brakedown_ml,
+        rand_point_brakedown_ml
+    );
 }
 
-fn experiment_hyrax() {
+fn experiment_hyrax(num_vars: usize) {
     type Hyrax254 = HyraxPC<ark_bn254::G1Affine, DenseMultilinearExtension<ark_bn254::Fr>>;
 
     fn rand_poly_hyrax<F: PrimeField>(
@@ -137,16 +163,14 @@ fn experiment_hyrax() {
     }
 
     println!("\nHyrax on BN254:");
-    for num_vars in (MIN_NUM_VARS..MAX_NUM_VARS).step_by(2) {
-        experiment::<ark_bn254::Fr, DenseMultilinearExtension<ark_bn254::Fr>, Hyrax254>(
-            num_vars,
-            rand_poly_hyrax,
-            rand_point_hyrax
-        );
-    }
+    experiment::<ark_bn254::Fr, DenseMultilinearExtension<ark_bn254::Fr>, Hyrax254>(
+        num_vars,
+        rand_poly_hyrax,
+        rand_point_hyrax
+    );
 }
 
-fn experiment_lingero() {
+fn experiment_lingero(num_vars: usize) {
     struct MerkleTreeParams;
     type LeafH = LeafIdentityHasher;
     type CompressH = Sha256;
@@ -194,17 +218,16 @@ fn experiment_lingero() {
     }
 
     println!("\nLingero on BN254:");
-    for num_vars in (MIN_NUM_VARS..MAX_NUM_VARS).step_by(2) {
-        experiment::<ark_bn254::Fr, MLE<ark_bn254::Fr>, Ligero<ark_bn254::Fr>>(
-            num_vars,
-            rand_poly_ligero_ml,
-            rand_point_ligero_ml
-        );
-    }
+    experiment::<ark_bn254::Fr, MLE<ark_bn254::Fr>, Ligero<ark_bn254::Fr>>(
+        num_vars,
+        rand_poly_ligero_ml,
+        rand_point_ligero_ml
+    );
+
 }
 
 
-fn experiment_marlin() {
+fn experiment_marlin(num_vars: usize) {
     #![allow(non_camel_case_types)]
     use ark_poly::univariate::DensePolynomial as DensePoly;
 
@@ -234,16 +257,14 @@ fn experiment_marlin() {
     }
 
     println!("\nMarlin-PC on BLS12-381:");
-    for num_vars in (MIN_NUM_VARS..MAX_NUM_VARS).step_by(2) {
-        experiment::<_,_, PC_Bls12_381>(
-            2_usize.pow(num_vars as u32),
-            rand_poly_marlin,
-            rand_point_marlin // Add the type parameter here
-        );
-    }
+    experiment::<_,_, PC_Bls12_381>(
+        2_usize.pow(num_vars as u32),
+        rand_poly_marlin,
+        rand_point_marlin // Add the type parameter here
+    );
 }
 
-fn experiment_sonic() {
+fn experiment_sonic(num_vars: usize) {
     #![allow(non_camel_case_types)]
     use ark_poly::univariate::DensePolynomial as DensePoly;
 
@@ -273,16 +294,15 @@ fn experiment_sonic() {
     }
 
     println!("\nSonic on BLS12-381:");
-    for num_vars in (MIN_NUM_VARS..MAX_NUM_VARS).step_by(2) {
-        experiment::<_,_, PC_Bls12_381>(
-            2_usize.pow(num_vars as u32),
-            rand_poly_sonic,
-            rand_point_sonic // Add the type parameter here
-        );
-    }
+    experiment::<_,_, PC_Bls12_381>(
+        2_usize.pow(num_vars as u32),
+        rand_poly_sonic,
+        rand_point_sonic // Add the type parameter here
+    );
+
 }
 
-fn experiment_ipa() {
+fn experiment_ipa(num_vars: usize) {
 
     type UniPoly = DenseUnivariatePoly<ark_ed_on_bls12_381::Fr>;
     // IPA_PC over the JubJub curve with Blake2s as the hash function
@@ -306,25 +326,23 @@ fn experiment_ipa() {
     }
 
     println!("\nIPA on BLS12-381:");
-    for num_vars in (MIN_NUM_VARS..MAX_NUM_VARS).step_by(2) {
-        experiment::<ark_ed_on_bls12_381::Fr, UniPoly, IPA_JubJub>(
-            2_usize.pow(num_vars as u32),
-            rand_poly_ipa_pc,
-            rand_point_ipa_pc
-        );
-    }
+    experiment::<ark_ed_on_bls12_381::Fr, UniPoly, IPA_JubJub>(
+        2_usize.pow(num_vars as u32),
+        rand_poly_ipa_pc,
+        rand_point_ipa_pc
+    );
+    
 }
 
-fn experiment_kzg() {
+fn experiment_kzg(num_vars: usize) {
     #![allow(non_camel_case_types)]
     use ark_poly::univariate::DensePolynomial as DensePoly;
 
     type UniPoly_381 = DensePoly<<Bls12_381 as Pairing>::ScalarField>;
 
     println!("\nKZG on BLS12-381:");
-    for num_vars in (MIN_NUM_VARS..MAX_NUM_VARS).step_by(2) {
-        ark_poly_commit::kzg10::experiment_kzg_template::<Bls12_381, UniPoly_381>(
-        2_usize.pow(num_vars as u32),
-        );
-    }
+    ark_poly_commit::kzg10::experiment_kzg_template::<Bls12_381, UniPoly_381>(
+    2_usize.pow(num_vars as u32),
+    );
+    
 }
