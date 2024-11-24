@@ -236,6 +236,11 @@ where
     let pp = PCS::setup(num_vars, Some(num_vars), rng).unwrap();
     let (ck, vk) = PCS::trim(&pp, num_vars, num_vars, None).unwrap();
 
+    let srs_size = ck.serialized_size(Compress::No);
+
+    println!("SRS size: {} B", srs_size);
+
+
     let setup_time = setup_start.elapsed().as_secs_f32() * 1000.0;
     println!("Setup time: {} ms", setup_time);
 
@@ -284,7 +289,7 @@ where
     println!("Verify time: {} ms", verify_time);
 
     let bproof: PCS::BatchProof = vec![proof].into();
-    let proof_size = bproof.serialized_size(Compress::No);
+    let proof_size = bproof.serialized_size(Compress::Yes);
     println!("Proof size: {} B", proof_size);
 }
 

@@ -19,7 +19,7 @@ use ark_std::{
     ops::{Add, Mul},
 };
 
-use ark_serialize::CanonicalSerialize;
+use ark_serialize::{CanonicalSerialize, Compress};
 
 use rand::thread_rng;
 #[cfg(feature = "parallel")]
@@ -783,6 +783,11 @@ where
 
     let start_setup = Instant::now();
     let pp = SmartPC::<E>::setup(num_vars/2, rng).unwrap();
+
+    let srs_size = pp.serialized_size(Compress::Yes);
+
+    println!("SRS size: {:?} B", srs_size);
+
     let setup_time = start_setup.elapsed().as_secs_f64();
     println!("Setup time: {:?} s", setup_time);
 

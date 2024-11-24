@@ -1,7 +1,11 @@
-use std::fs::File;
+use std::fs::{self, File};
 use std::io;
 use std::os::unix::io::AsRawFd;
 use libc;
+
+use std::sync::{Arc, Mutex};
+use std::thread;
+use std::time::Duration;
 
 use ark_bls12_381::Bls12_381;
 use ark_crypto_primitives::{
@@ -32,25 +36,39 @@ use ark_ff::PrimeField;
 
 use rand_chacha::ChaCha20Rng;
 
-const MIN_NUM_VARS: usize = 24;
-const MAX_NUM_VARS: usize = 25;
+const MIN_NUM_VARS: usize = 20;
+const MAX_NUM_VARS: usize = 21;
 const BIT_WIDTH: usize = 8;
 
 fn main() -> io::Result<()> {
     println!("Running experiments for 2^{} to 2^{} variables",
         MIN_NUM_VARS, MAX_NUM_VARS - 1);
 
+    let max_memory = Arc::new(Mutex::new(0));
 
-    let log_file = File::create("experiment.log")?;
-    // experiment_lookups();
+    let max_memory_clone = Arc::clone(&max_memory);
+    let monitor_thread = thread::spawn(move || {
+        loop {
+            if let Some(memory_usage) = get_memory_usage() {
+                let mut max = max_memory_clone.lock().unwrap();
+                if memory_usage > *max {
+                    *max = memory_usage;
+                }
+            } 
+            thread::sleep(Duration::from_secs(1)); // 暂停 1 秒
+        }
+    });
 
-    println!("Redirecting stdout to experiment.log...");
+    // let log_file = File::create("experiment.log")?;
+    // // experiment_lookups();
+
+    // println!("Redirecting stdout to experiment.log...");
 
 
-    unsafe {
-        let stdout_fd = io::stdout().as_raw_fd();
-        let _ = libc::dup2(log_file.as_raw_fd(), stdout_fd);
-    }
+    // unsafe {
+    //     let stdout_fd = io::stdout().as_raw_fd();
+    //     let _ = libc::dup2(log_file.as_raw_fd(), stdout_fd);
+    // }
 
     println!("*********************************************");
     println!("Running experiments for 2^{} to 2^{} variables",
@@ -71,8 +89,24 @@ fn main() -> io::Result<()> {
         experiment_ipa(num_vars);
     }
 
+
+    let max = max_memory.lock().unwrap();
+    println!("\n ****Max RAM: {} KB\n", *max);
+
     Ok(())
 }
+
+fn get_memory_usage() -> Option<u64> {
+    let status = fs::read_to_string("/proc/self/status").ok()?;
+    for line in status.lines() {
+        if line.starts_with("VmRSS:") {
+            let parts: Vec<&str> = line.split_whitespace().collect();
+            return parts.get(1).and_then(|s| s.parse().ok());
+        }
+    }
+    None
+}
+
 
 fn experiment_smart(num_vars: usize) {
     type E = Bls12_381;

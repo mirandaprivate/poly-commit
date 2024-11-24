@@ -1,9 +1,57 @@
-*********************************************
-Running experiments for 2^24 to 2^24 variables
-
 
 ***********************************************
-Running experiments for 2e24 variables
+Running experiments for 2e28 variables
 
 SMART-PC on BLS12-381:
-Setup time: 1.097129821 s
+Setup time: 1.073527689 s
+Tier 1 time in short bit: 177.943852085s
+Commit time: 181.368693251 s
+Commit size: 787016 B
+Open time: 22.368472752 s
+Verify time: 124.12778100000001 ms
+Proof size: 34480 B
+SMART-PC  verified: true
+Tier 1 time in boolean: 8.330539545s
+Commit time (boolean): 11.726285179 s
+SMART-PC (boolean)  verified: true
+
+Brakedown on BN254:
+Setup time: 1467.7849 ms
+Commit time: 25.959019 s
+Commitment size: 64 B
+Open time: 21.307339 s
+Verify time: 16034.8545 ms
+Proof size: 109527801 B
+
+Hyrax on BN254:
+Setup time: 12.428336 ms
+Commit time: 73.850174 s
+Commitment size: 1048584 B
+Open time: 1.495959 s
+Verify time: 979.07697 ms
+Proof size: 524568 B
+
+Lingero on BN254:
+Setup time: 0.000038 ms
+Commit time: 22.86045 s
+Commitment size: 64 B
+Open time: 13.355859 s
+Verify time: 3682.0945 ms
+Proof size: 29001737 B
+
+KZG on BLS12-381:
+Setup time: 296.206336322s
+Commit time: 241.315167278s
+Commit size: 48B
+Open time: 368.626165329s
+Verify time: 4.993022ms
+Proof size: 81B
+KZG10 proof verified: false
+
+Marlin-PC on BLS12-381:
+Setup time: 315303.53 ms
+Commit time: 244.73253 s
+Commitment size: 97 B
+Open time: 382.622 s
+Verify time: 24.724577 ms
+Proof size: 105 B

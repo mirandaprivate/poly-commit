@@ -12,7 +12,7 @@ use ark_ec::{pairing::Pairing, scalar_mul::ScalarMul, AffineRepr, CurveGroup, Va
 use ark_ff::{One, PrimeField, UniformRand, Zero};
 use ark_poly::DenseUVPolynomial;
 use ark_std::{format, marker::PhantomData, ops::Div, ops::Mul, rand::RngCore};
-use ark_serialize::CanonicalSerialize;
+use ark_serialize::{CanonicalSerialize, Compress};
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
 
@@ -516,6 +516,10 @@ where
     let (ck, vk) = KZG10::<E, P>::trim(&pp, degree).unwrap();
     let setup_time = start_setup.elapsed().as_secs_f64();
     println!("Setup time: {:?}s", setup_time);
+
+    let srs_size = ck.serialized_size(Compress::Yes);
+
+    println!("SRS size: {:?} B", srs_size);
 
     let start_commit = Instant::now();
     let p = P::rand(degree, rng);
