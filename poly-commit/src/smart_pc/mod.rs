@@ -809,8 +809,9 @@ where
     let hiding_factor = E::ScalarField::rand(rng);
 
     let start_commit = Instant::now();
-    let comm =
+    let comm_full =
         SmartPC::<E>::commit_short(&pp, &mat, hiding_factor, k).unwrap();
+    let comm = comm_full.0;
     let commit_time = start_commit.elapsed().as_secs_f64();
     println!("Commit time: {:?} s", commit_time);
 
@@ -831,7 +832,7 @@ where
     let start_open = Instant::now();
     let proof = SmartPC::<E>::open(
         &pp, &mat_scalar, &xl, &xr,
-        v_com, comm.0, &comm.1, v_tilde, hiding_factor,
+        v_com, comm_full.0, &comm_full.1, v_tilde, hiding_factor,
     );
     let proof = proof.unwrap();
     let open_time = start_open.elapsed().as_secs_f64();
@@ -840,7 +841,7 @@ where
     let verify_time = Instant::now();
     let check = SmartPC::<E>::verify(
         &pp,
-        comm.0,
+        comm,
         v_com,
         &xl,
         &xr,
