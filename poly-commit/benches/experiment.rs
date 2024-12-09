@@ -40,6 +40,7 @@ const MIN_NUM_VARS: usize = 22;
 const MAX_NUM_VARS: usize = 23;
 const BIT_WIDTH: usize = 8;
 
+#[allow(dead_code)]
 fn main() -> io::Result<()> {
     println!("Running experiments for 2^{} to 2^{} variables",
         MIN_NUM_VARS, MAX_NUM_VARS - 1);
@@ -79,69 +80,69 @@ fn main() -> io::Result<()> {
         println!("\n\n***********************************************");
         println!("Running experiments for 2e{} variables", num_vars);
 
-        experiment_smart(num_vars);
+        // experiment_smart(num_vars);
 
 
-        let mut max = max_memory.lock().unwrap();
-        println!("\n ****Max RAM: {} KB\n", *max);
-        println!("\n\n***********************************************");
-        *max = 0;
-        std::mem::drop(max);
+        // let mut max = max_memory.lock().unwrap();
+        // println!("\n ****Max RAM: {} KB\n", *max);
+        // println!("\n\n***********************************************");
+        // *max = 0;
+        // std::mem::drop(max);
 
 
-        experiment_brakedown(num_vars);
+        // experiment_brakedown(num_vars);
 
-        let mut max = max_memory.lock().unwrap();
-        println!("\n ****Max RAM: {} KB\n", *max);
-        println!("\n\n***********************************************");
-        *max = 0;
-        std::mem::drop(max);
-
-
-        experiment_hyrax(num_vars);
-
-        let mut max = max_memory.lock().unwrap();
-        println!("\n ****Max RAM: {} KB\n", *max);
-        println!("\n\n***********************************************");
-        *max = 0;
-        std::mem::drop(max);
+        // let mut max = max_memory.lock().unwrap();
+        // println!("\n ****Max RAM: {} KB\n", *max);
+        // println!("\n\n***********************************************");
+        // *max = 0;
+        // std::mem::drop(max);
 
 
-        experiment_lingero(num_vars);
+        // experiment_hyrax(num_vars);
 
-        let mut max = max_memory.lock().unwrap();
-        println!("\n ****Max RAM: {} KB\n", *max);
-        println!("\n\n***********************************************");
-        *max = 0;
-        std::mem::drop(max);
-
-
-
-        experiment_kzg(num_vars);
-
-        let mut max = max_memory.lock().unwrap();
-        println!("\n ****Max RAM: {} KB\n", *max);
-        println!("\n\n***********************************************");
-        *max = 0;
-        std::mem::drop(max);
+        // let mut max = max_memory.lock().unwrap();
+        // println!("\n ****Max RAM: {} KB\n", *max);
+        // println!("\n\n***********************************************");
+        // *max = 0;
+        // std::mem::drop(max);
 
 
-        experiment_marlin(num_vars);
+        // experiment_lingero(num_vars);
 
-        let mut max = max_memory.lock().unwrap();
-        println!("\n ****Max RAM: {} KB\n", *max);
-        println!("\n\n***********************************************");
-        *max = 0;
-        std::mem::drop(max);
+        // let mut max = max_memory.lock().unwrap();
+        // println!("\n ****Max RAM: {} KB\n", *max);
+        // println!("\n\n***********************************************");
+        // *max = 0;
+        // std::mem::drop(max);
 
 
-        experiment_sonic(num_vars);
 
-        let mut max = max_memory.lock().unwrap();
-        println!("\n ****Max RAM: {} KB\n", *max);
-        println!("\n\n***********************************************");
-        *max = 0;
-        std::mem::drop(max);
+        // experiment_kzg(num_vars);
+
+        // let mut max = max_memory.lock().unwrap();
+        // println!("\n ****Max RAM: {} KB\n", *max);
+        // println!("\n\n***********************************************");
+        // *max = 0;
+        // std::mem::drop(max);
+
+
+        // experiment_marlin(num_vars);
+
+        // let mut max = max_memory.lock().unwrap();
+        // println!("\n ****Max RAM: {} KB\n", *max);
+        // println!("\n\n***********************************************");
+        // *max = 0;
+        // std::mem::drop(max);
+
+
+        // experiment_sonic(num_vars);
+
+        // let mut max = max_memory.lock().unwrap();
+        // println!("\n ****Max RAM: {} KB\n", *max);
+        // println!("\n\n***********************************************");
+        // *max = 0;
+        // std::mem::drop(max);
 
 
         experiment_ipa(num_vars);
