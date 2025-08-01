@@ -307,11 +307,11 @@ pub(crate) mod tests {
         for i in 1..10 {
             let deg = (1 << i) - 1;
 
-            let rand_chacha = &mut ChaCha20Rng::from_rng(test_rng()).unwrap();
-            let mut pol = DensePolynomial::rand(deg, rand_chacha);
+            let rand_chacha = &mut ChaCha20Rng::from_seed([0u8; 32]);
+            let mut pol = DensePolynomial::rand(deg, &mut test_rng());
 
             while pol.degree() != deg {
-                pol = DensePolynomial::rand(deg, rand_chacha);
+                pol = DensePolynomial::rand(deg, &mut test_rng());
             }
 
             let coeffs = &pol.coeffs;

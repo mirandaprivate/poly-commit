@@ -360,8 +360,6 @@ pub fn inner_pairing_product_slower<E: Pairing>(
 /// Test the utils functions
 pub fn test_utils<E:Pairing>() {
 
-    use rand::Rng;
-
     // let rng = &mut ark_std::test_rng();
 
     let n = 2_usize.pow(15);
@@ -392,7 +390,8 @@ pub fn test_utils<E:Pairing>() {
 
     let i32_vec: Vec<i32> = (0..n).into_par_iter()
     .map(|_|{
-        let mut rng = rand::thread_rng();
+        use ark_std::{rand::Rng, test_rng};
+        let mut rng = test_rng();
         rng.gen_range(-127..127)
     }).collect();
     let boolean_vec: Vec<bool> = (0..n).into_par_iter()

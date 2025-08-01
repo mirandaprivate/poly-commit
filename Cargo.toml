@@ -4,7 +4,7 @@ resolver = "2"
 
 
 [workspace.package]
-version = "0.4.0"
+version = "0.5.0"
 authors = ["arkworks contributors"]
 description = "A library for constructing polynomial commitment schemes for use in zkSNARKs"
 repository = "https://github.com/arkworks-rs/poly-commit"
@@ -27,16 +27,16 @@ debug-assertions = true
 incremental = true
 debug = true
 
-[patch.crates-io]
-ark-std = { git = "https://github.com/arkworks-rs/std/" }
-ark-ff = { git = "https://github.com/mirandaprivate/algebra" }
-ark-ec = { git = "https://github.com/mirandaprivate/algebra" }
-ark-serialize = { git = "https://github.com/mirandaprivate/algebra" }
-ark-poly = { git = "https://github.com/mirandaprivate/algebra" }
+# [patch.crates-io]
+# ark-std = { git = "https://github.com/arkworks-rs/std/" }
+# ark-ff = { git = "https://github.com/mirandaprivate/algebra" }
+# ark-ec = { git = "https://github.com/mirandaprivate/algebra" }
+# ark-serialize = { git = "https://github.com/mirandaprivate/algebra" }
+# ark-poly = { git = "https://github.com/mirandaprivate/algebra" }
 
-ark-crypto-primitives = { git = "https://github.com/arkworks-rs/crypto-primitives/" }
-ark-r1cs-std = { git = "https://github.com/arkworks-rs/r1cs-std/" }
+# ark-crypto-primitives = { git = "https://github.com/arkworks-rs/crypto-primitives/" }
+# ark-r1cs-std = { git = "https://github.com/arkworks-rs/r1cs-std/" }
 
-ark-bls12-377 = { git = "https://github.com/mirandaprivate/algebra" }
-ark-bls12-381 = { git = "https://github.com/mirandaprivate/algebra" }
-ark-bn254 = { git = "https://github.com/mirandaprivate/algebra" }
+# ark-bls12-377 = { git = "https://github.com/mirandaprivate/algebra" }
+# ark-bls12-381 = { git = "https://github.com/mirandaprivate/algebra" }
+# ark-bn254 = { git = "https://github.com/mirandaprivate/algebra" }

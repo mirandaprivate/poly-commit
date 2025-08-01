@@ -58,7 +58,7 @@ mod tests {
         _: Option<usize>,
         rng: &mut ChaCha20Rng,
     ) -> DensePolynomial<Fr> {
-        DensePolynomial::rand(degree, rng)
+        DensePolynomial::rand(degree, &mut test_rng())
     }
 
     fn constant_poly<Fr: PrimeField>(
@@ -66,7 +66,7 @@ mod tests {
         _: Option<usize>,
         rng: &mut ChaCha20Rng,
     ) -> DensePolynomial<Fr> {
-        DensePolynomial::from_coefficients_slice(&[Fr::rand(rng)])
+        DensePolynomial::from_coefficients_slice(&[Fr::rand(&mut test_rng())])
     }
 
     #[test]
@@ -92,7 +92,7 @@ mod tests {
 
         let (ck, vk) = LigeroPCS::trim(&pp, 0, 0, None).unwrap();
 
-        let rand_chacha = &mut ChaCha20Rng::from_rng(test_rng()).unwrap();
+        let rand_chacha = &mut ChaCha20Rng::from_seed([0u8; 32]);
         let labeled_poly = LabeledPolynomial::new(
             "test".to_string(),
             rand_poly(degree, None, rand_chacha),
@@ -123,7 +123,7 @@ mod tests {
     }
 
     fn rand_point<F: Field>(_: Option<usize>, rng: &mut ChaCha20Rng) -> F {
-        F::rand(rng)
+        F::rand(&mut test_rng())
     }
 
     #[test]

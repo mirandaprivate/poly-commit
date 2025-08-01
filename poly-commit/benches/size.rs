@@ -20,6 +20,10 @@ fn rand_poly_ipa_pc<F: PrimeField>(degree: usize, rng: &mut ChaCha20Rng) -> Dens
     DenseUnivariatePoly::rand(degree, rng)
 }
 
+fn rand_point_ipa_pc<F: PrimeField>(_: usize, rng: &mut ChaCha20Rng) -> F {
+    F::rand(rng)
+}
+
 const MIN_NUM_VARS: usize = 10;
 const MAX_NUM_VARS: usize = 20;
 
@@ -29,7 +33,7 @@ fn main() {
         println!(
             "\tnum_vars: {}, size: {} B",
             num_vars,
-            commitment_size::<_, _, IPA_JubJub>(num_vars, rand_poly_ipa_pc)
+            commitment_size::<_, _, IPA_JubJub>(num_vars, rand_poly_ipa_pc, rand_point_ipa_pc)
         );
     }
 

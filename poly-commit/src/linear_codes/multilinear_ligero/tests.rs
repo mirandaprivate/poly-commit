@@ -51,7 +51,7 @@ mod tests {
         rng: &mut ChaCha20Rng,
     ) -> SparseMultilinearExtension<Fr> {
         match num_vars {
-            Some(n) => SparseMultilinearExtension::rand(n, rng),
+            Some(n) => SparseMultilinearExtension::rand(n, &mut test_rng()),
             None => unimplemented!(), // should not happen in ML case!
         }
     }
@@ -64,7 +64,7 @@ mod tests {
         // f1 = (1-x1)(1-x2)(1-x3)(1-x5)[(1-x6)*x4 + 2(1-x4)*x6]
         match num_vars {
             Some(n) => {
-                let points = vec![(1, Fr::rand(rng))];
+                let points = vec![(1, Fr::rand(&mut test_rng()))];
                 SparseMultilinearExtension::from_evaluations(n, &points)
             }
             None => unimplemented!(), // should not happen in ML case!
@@ -94,7 +94,7 @@ mod tests {
 
         let (ck, vk) = LigeroPCS::<Fr>::trim(&pp, 0, 0, None).unwrap();
 
-        let rand_chacha = &mut ChaCha20Rng::from_rng(test_rng()).unwrap();
+        let rand_chacha = &mut ChaCha20Rng::from_seed([0u8; 32]);
         let labeled_poly = LabeledPolynomial::new(
             "test".to_string(),
             rand_poly(1, Some(num_vars), rand_chacha),
@@ -127,7 +127,7 @@ mod tests {
 
     fn rand_point<F: Field>(num_vars: Option<usize>, rng: &mut ChaCha20Rng) -> Vec<F> {
         match num_vars {
-            Some(n) => (0..n).map(|_| F::rand(rng)).collect(),
+            Some(n) => (0..n).map(|_| F::rand(&mut test_rng())).collect(),
             None => unimplemented!(), // should not happen!
         }
     }

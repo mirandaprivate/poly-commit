@@ -684,7 +684,7 @@ pub mod tests {
     {
         let sponge = sponge();
 
-        let rng = &mut ChaCha20Rng::from_rng(test_rng()).unwrap();
+        let rng = &mut ChaCha20Rng::from_seed([0u8; 32]);
         let max_degree = 100;
         let pp = PC::setup(max_degree, None, rng)?;
         for _ in 0..10 {
@@ -787,7 +787,7 @@ pub mod tests {
 
         let sponge = sponge();
 
-        let rng = &mut ChaCha20Rng::from_rng(test_rng()).unwrap();
+        let rng = &mut ChaCha20Rng::from_seed([0u8; 32]);
         // If testing multivariate polynomials, make the max degree lower
         let max_degree = match num_vars {
             Some(_) => max_degree.unwrap_or(Uniform::from(2..=10).sample(rng)),
@@ -928,7 +928,7 @@ pub mod tests {
 
         let sponge = sponge();
 
-        let rng = &mut ChaCha20Rng::from_rng(test_rng()).unwrap();
+        let rng = &mut ChaCha20Rng::from_seed([0u8; 32]);
         // If testing multivariate polynomials, make the max degree lower
         let max_degree = match num_vars {
             Some(_) => max_degree.unwrap_or(Uniform::from(2..=10).sample(rng)),

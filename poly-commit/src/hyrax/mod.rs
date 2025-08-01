@@ -8,7 +8,7 @@ use ark_ec::{AffineRepr, CurveGroup, VariableBaseMSM};
 use ark_ff::PrimeField;
 use ark_poly::MultilinearExtension;
 use ark_serialize::serialize_to_vec;
-use ark_std::{marker::PhantomData, rand::RngCore, UniformRand};
+use ark_std::{marker::PhantomData, rand::RngCore, UniformRand, test_rng};
 
 use blake2::Blake2s256;
 use digest::Digest;
@@ -235,7 +235,7 @@ where
                     #[cfg(not(feature = "parallel"))]
                     let r = G::ScalarField::rand(rng_inner);
                     #[cfg(feature = "parallel")]
-                    let r = G::ScalarField::rand(&mut rand::thread_rng());
+                    let r = G::ScalarField::rand(&mut test_rng());
                     let c = (Self::pedersen_commit(&ck.com_key, row) + ck.h * r).into();
                     (c, r)
                 })

@@ -526,8 +526,8 @@ where
 
     // Test short bit-width polynomials
     let coeffs = (0..degree).into_par_iter().map(|_|{
-        use rand::Rng;
-        let mut rng = rand::thread_rng();
+        use ark_std::{rand::Rng, test_rng};
+        let mut rng = test_rng();
         E::ScalarField::from(rng.gen_range(-127..127))
         }).collect();
     let p_short = P::from_coefficients_vec(coeffs);

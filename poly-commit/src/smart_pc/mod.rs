@@ -21,7 +21,6 @@ use ark_std::{
 
 use ark_serialize::{CanonicalSerialize, Compress};
 
-use rand::thread_rng;
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
 
@@ -795,8 +794,8 @@ where
     let k = 8;
     let mat: Vec<Vec<i32>> = (0..n).into_par_iter()
     .map(|_|{
-        use rand::Rng;
-        let mut rng = thread_rng();
+        use ark_std::{rand::Rng, test_rng};
+        let mut rng = test_rng();
         (0..n).into_iter().map(|_|{
             rng.gen_range(-128..128)
         }).collect()

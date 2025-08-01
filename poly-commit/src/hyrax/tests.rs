@@ -28,7 +28,7 @@ fn rand_poly<Fr: PrimeField>(
     rng: &mut ChaCha20Rng,
 ) -> DenseMultilinearExtension<Fr> {
     match num_vars {
-        Some(n) => DenseMultilinearExtension::rand(n, rng),
+        Some(n) => DenseMultilinearExtension::rand(n, &mut test_rng()),
         None => panic!("Must specify the number of variables"),
     }
 }
@@ -39,14 +39,14 @@ fn constant_poly<Fr: PrimeField>(
     rng: &mut ChaCha20Rng,
 ) -> DenseMultilinearExtension<Fr> {
     match num_vars {
-        Some(0) => DenseMultilinearExtension::rand(0, rng),
+        Some(0) => DenseMultilinearExtension::rand(0, &mut test_rng()),
         _ => panic!("Must specify the number of variables: 0"),
     }
 }
 
 fn rand_point<F: PrimeField>(num_vars: Option<usize>, rng: &mut ChaCha20Rng) -> Vec<F> {
     match num_vars {
-        Some(n) => (0..n).map(|_| F::rand(rng)).collect(),
+        Some(n) => (0..n).map(|_| F::rand(&mut test_rng())).collect(),
         None => panic!("Must specify the number of variables"),
     }
 }
@@ -58,7 +58,7 @@ fn test_hyrax_construction() {
     // Desired number of variables (must be even!)
     let n = 8;
 
-    let chacha = &mut ChaCha20Rng::from_rng(test_rng()).unwrap();
+    let chacha = &mut ChaCha20Rng::from_seed([0u8; 32]);
 
     let pp = Hyrax381::setup(1, Some(n), chacha).unwrap();
 

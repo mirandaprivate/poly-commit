@@ -1056,6 +1056,7 @@ mod tests {
     use ark_ed_on_bls12_381::{EdwardsAffine, Fr};
     use ark_ff::PrimeField;
     use ark_poly::{univariate::DensePolynomial as DensePoly, DenseUVPolynomial};
+    use ark_std::test_rng;
     use blake2::Blake2s256;
     use rand_chacha::ChaCha20Rng;
 
@@ -1068,7 +1069,7 @@ mod tests {
         _: Option<usize>,
         rng: &mut ChaCha20Rng,
     ) -> DensePoly<F> {
-        DensePoly::rand(degree, rng)
+        DensePoly::rand(degree, &mut test_rng())
     }
 
     fn constant_poly<F: PrimeField>(
@@ -1076,11 +1077,11 @@ mod tests {
         _: Option<usize>,
         rng: &mut ChaCha20Rng,
     ) -> DensePoly<F> {
-        DensePoly::from_coefficients_slice(&[F::rand(rng)])
+        DensePoly::from_coefficients_slice(&[F::rand(&mut test_rng())])
     }
 
     fn rand_point<F: PrimeField>(_: Option<usize>, rng: &mut ChaCha20Rng) -> F {
-        F::rand(rng)
+        F::rand(&mut test_rng())
     }
 
     #[test]
