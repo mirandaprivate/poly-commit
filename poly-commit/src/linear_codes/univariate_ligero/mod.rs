@@ -31,6 +31,9 @@ where
     P: DenseUVPolynomial<F>,
     P::Point: Into<F>,
     H: CRHScheme,
+    <<C as Config>::LeafHash as CRHScheme>::Parameters: Sync,
+    <<C as Config>::TwoToOneHash as TwoToOneCRHScheme>::Parameters: Sync,
+    <H as CRHScheme>::Parameters: Sync,
 {
     type LinCodePCParams = LigeroPCParams<F, C, H>;
 

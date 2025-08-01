@@ -31,9 +31,12 @@ impl<F, C, P, H> LinearEncode<F, C, P, H> for MultilinearLigero<F, C, P, H>
 where
     F: PrimeField + FftField,
     C: Config,
-    P: MultilinearExtension<F>,
+    P: MultilinearExtension<F> + Polynomial<F>,
     <P as Polynomial<F>>::Point: Into<Vec<F>>,
     H: CRHScheme,
+    <<C as Config>::LeafHash as CRHScheme>::Parameters: Sync,
+    <<C as Config>::TwoToOneHash as TwoToOneCRHScheme>::Parameters: Sync,
+    <H as CRHScheme>::Parameters: Sync,
 {
     type LinCodePCParams = LigeroPCParams<F, C, H>;
 

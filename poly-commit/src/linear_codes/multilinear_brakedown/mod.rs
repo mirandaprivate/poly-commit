@@ -32,6 +32,9 @@ where
     P: MultilinearExtension<F> + Polynomial<F>,
     <P as Polynomial<F>>::Point: Into<Vec<F>>,
     H: CRHScheme,
+    <<C as Config>::LeafHash as CRHScheme>::Parameters: Sync,
+    <<C as Config>::TwoToOneHash as TwoToOneCRHScheme>::Parameters: Sync,
+    <H as CRHScheme>::Parameters: Sync,
 {
     type LinCodePCParams = BrakedownPCParams<F, C, H>;
 
