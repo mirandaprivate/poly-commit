@@ -29,7 +29,7 @@ impl<F, C, P, H> LinearEncode<F, C, P, H> for MultilinearBrakedown<F, C, P, H>
 where
     F: PrimeField,
     C: Config,
-    P: MultilinearExtension<F>,
+    P: MultilinearExtension<F> + Polynomial<F>,
     <P as Polynomial<F>>::Point: Into<Vec<F>>,
     H: CRHScheme,
 {

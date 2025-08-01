@@ -44,6 +44,9 @@ where
     F: PrimeField,
     C: Config,
     H: CRHScheme,
+    <<C as Config>::LeafHash as CRHScheme>::Parameters: Sync,
+    <<C as Config>::TwoToOneHash as TwoToOneCRHScheme>::Parameters: Sync,
+    <H as CRHScheme>::Parameters: Sync,
 {
     fn max_degree(&self) -> usize {
         if F::TWO_ADICITY < self.rho_inv as u32 {
@@ -61,6 +64,9 @@ where
     F: PrimeField,
     C: Config,
     H: CRHScheme,
+    <<C as Config>::LeafHash as CRHScheme>::Parameters: Sync,
+    <<C as Config>::TwoToOneHash as TwoToOneCRHScheme>::Parameters: Sync,
+    <H as CRHScheme>::Parameters: Sync,
 {
     fn max_degree(&self) -> usize {
         if (F::TWO_ADICITY - self.rho_inv as u32) * 2 < 64 {
@@ -80,6 +86,9 @@ where
     F: PrimeField,
     C: Config,
     H: CRHScheme,
+    <<C as Config>::LeafHash as CRHScheme>::Parameters: Sync,
+    <<C as Config>::TwoToOneHash as TwoToOneCRHScheme>::Parameters: Sync,
+    <H as CRHScheme>::Parameters: Sync,
 {
     fn max_degree(&self) -> usize {
         if (F::TWO_ADICITY - self.rho_inv as u32) * 2 < 64 {
