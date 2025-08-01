@@ -1,7 +1,7 @@
 use crate::{
     hyrax::utils::{flat_to_matrix_column_major, tensor_prime},
     utils::{inner_product, scalar_by_vector, vector_sum, Matrix},
-    Error, LabeledCommitment, LabeledPolynomial, PolynomialCommitment, Polynomial,
+    Error, LabeledCommitment, LabeledPolynomial, PolynomialCommitment,
 };
 use ark_crypto_primitives::sponge::{Absorb, CryptographicSponge};
 use ark_ec::{AffineRepr, CurveGroup, VariableBaseMSM};
@@ -97,7 +97,7 @@ impl<G, P> PolynomialCommitment<G::ScalarField, P> for HyraxPC<G, P>
 where
     G: AffineRepr,
     G::ScalarField: Absorb,
-    P: MultilinearExtension<G::ScalarField> + Polynomial<G::ScalarField>,
+    P: MultilinearExtension<G::ScalarField> + ark_poly::Polynomial<G::ScalarField>,
 {
     type UniversalParams = HyraxUniversalParams<G>;
     type CommitterKey = HyraxCommitterKey<G>;

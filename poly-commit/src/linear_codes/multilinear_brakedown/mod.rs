@@ -7,7 +7,7 @@ use ark_crypto_primitives::{
     merkle_tree::Config,
 };
 use ark_ff::{Field, PrimeField};
-use ark_poly::{MultilinearExtension, Polynomial};
+use ark_poly::MultilinearExtension;
 #[cfg(not(feature = "std"))]
 use ark_std::vec::Vec;
 use ark_std::{log2, marker::PhantomData, rand::RngCore};
@@ -29,8 +29,8 @@ impl<F, C, P, H> LinearEncode<F, C, P, H> for MultilinearBrakedown<F, C, P, H>
 where
     F: PrimeField,
     C: Config,
-    P: MultilinearExtension<F> + Polynomial<F>,
-    <P as Polynomial<F>>::Point: Into<Vec<F>>,
+    P: MultilinearExtension<F> + ark_poly::Polynomial<F>,
+    <P as ark_poly::Polynomial<F>>::Point: Into<Vec<F>>,
     H: CRHScheme,
     <<C as Config>::LeafHash as CRHScheme>::Parameters: Sync,
     <<C as Config>::TwoToOneHash as TwoToOneCRHScheme>::Parameters: Sync,
@@ -90,14 +90,14 @@ where
         polynomial.to_evaluations()
     }
 
-    fn point_to_vec(point: <P as Polynomial<F>>::Point) -> Vec<F> {
+    fn point_to_vec(point: <P as ark_poly::Polynomial<F>>::Point) -> Vec<F> {
         point
     }
 
     /// For a multilinear polynomial in n+m variables it returns a tuple for k={n,m}:
     /// ((1-z_1)*(1-z_2)*...*(1_z_k), z_1*(1-z_2)*...*(1-z_k), ..., z_1*z_2*...*z_k)
     fn tensor(
-        point: &<P as Polynomial<F>>::Point,
+        point: &<P as ark_poly::Polynomial<F>>::Point,
         left_len: usize,
         _right_len: usize,
     ) -> (Vec<F>, Vec<F>) {

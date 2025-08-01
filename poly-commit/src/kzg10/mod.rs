@@ -562,7 +562,7 @@ where
 
     println!(
         "KZG10 proof verified: {}",
-        KZG10::<E, P>::check(&vk, &comm, point, value, &proof).unwrap()
+        verified
     );
 }
 
